@@ -10,7 +10,7 @@ export default function Home() {
                     <Link href="/experiments/cells" className="hover:bg-green-900 p-2 rounded">
                         <p>
                             <span className="text-blue-400">[01]</span>
-                            <span className="text-white ml-4">Cells</span>
+                            <span className="text-white ml-4">Musical Cells</span>
                         </p>
                     </Link>
                     <Link href="/experiments/pncalc" className="hover:bg-green-900 p-2 rounded">
