@@ -13,7 +13,7 @@ export default function Home() {
                             <span className="text-white ml-4">Cells</span>
                         </p>
                     </Link>
-                    <Link href="/experiments/polish-notation-calc" className="hover:bg-green-900 p-2 rounded">
+                    <Link href="/experiments/pncalc" className="hover:bg-green-900 p-2 rounded">
                         <p>
                             <span className="text-blue-400">[02]</span>
                             <span className="text-white ml-4">PN/RPN Calc</span>
