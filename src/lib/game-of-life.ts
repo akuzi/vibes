@@ -58,6 +58,7 @@ export const createGridWithPattern = (
 };
 
 export type GlitchLevel = 'None' | 'Low' | 'Medium' | 'High';
+export type MelodyMode = 'Horizontal' | 'Vertical' | 'Random';
 
 const GLITCH_EVENT_PROBABILITIES: Record<GlitchLevel, number> = {
   None: 0,

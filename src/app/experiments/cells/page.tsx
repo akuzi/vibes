@@ -9,24 +9,27 @@ import {
   CELL_SIZE,
   createGridWithPattern,
   GlitchLevel,
+  MelodyMode,
 } from '@/lib/game-of-life';
 import { PATTERNS, Pattern } from '@/lib/patterns';
-import { COLOR_SCHEMES, ColorScheme } from '@/lib/colors';
+import { COLOR_SCHEMES } from '@/lib/colors';
 import { SCALES, Scale } from '@/lib/music';
-import { AudioEngine, InstrumentName } from '@/lib/audio';
+import { AudioEngine, InstrumentName, InstrumentSet, INSTRUMENT_SETS } from '@/lib/audio';
 
 const CellsPage = () => {
   const [grid, setGrid] = useState<number[][]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [speed, setSpeed] = useState(300); // ms
-  const [selectedPattern, setSelectedPattern] = useState<Pattern>(PATTERNS.find(p => p.name === 'Diehard') || PATTERNS[0]);
-  const [selectedColorScheme, setSelectedColorScheme] = useState<ColorScheme>(
-    COLOR_SCHEMES.find(s => s.name === 'Ripple') || COLOR_SCHEMES[0]
+  const [bpm, setBpm] = useState(120);
+  const [selectedPattern, setSelectedPattern] = useState<Pattern>(
+    PATTERNS.find(p => p.name === 'Gosper Glider Gun') || PATTERNS[0]
   );
   const [generation, setGeneration] = useState(0);
   const [glitchLevel, setGlitchLevel] = useState<GlitchLevel>('Low');
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
-  const [selectedScale, setSelectedScale] = useState<Scale>(SCALES.find(s => s.name === 'C Pentatonic Minor') || SCALES[0]);
+  const [selectedInstrumentSet, setSelectedInstrumentSet] = useState<InstrumentSet>(
+    INSTRUMENT_SETS.find(s => s.name === 'Minimal') || INSTRUMENT_SETS[0]
+  );
+  const [melodyMode, setMelodyMode] = useState<MelodyMode>('Random');
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
@@ -34,8 +37,8 @@ const CellsPage = () => {
   const runningRef = useRef(isRunning);
   runningRef.current = isRunning;
 
-  const speedRef = useRef(speed);
-  speedRef.current = speed;
+  const bpmRef = useRef(bpm);
+  bpmRef.current = bpm;
 
   const glitchLevelRef = useRef(glitchLevel);
   glitchLevelRef.current = glitchLevel;
@@ -43,8 +46,11 @@ const CellsPage = () => {
   const isMusicEnabledRef = useRef(isMusicEnabled);
   isMusicEnabledRef.current = isMusicEnabled;
 
-  const selectedScaleRef = useRef(selectedScale);
-  selectedScaleRef.current = selectedScale;
+  const selectedInstrumentSetRef = useRef(selectedInstrumentSet);
+  selectedInstrumentSetRef.current = selectedInstrumentSet;
+
+  const melodyModeRef = useRef(melodyMode);
+  melodyModeRef.current = melodyMode;
 
   const runSimulation = useCallback(() => {
     if (!runningRef.current) {
@@ -56,29 +62,54 @@ const CellsPage = () => {
 
       if (isMusicEnabledRef.current && audioEngineRef.current) {
         const notesToPlay: { midiNote: number; instrument: InstrumentName }[] = [];
-        const scaleNotes = selectedScaleRef.current.notes;
+        const scaleNotes = SCALES.find(s => s.name === 'C Pentatonic Minor')?.notes || SCALES[0].notes;
         const numNotes = scaleNotes.length;
         const gridHeight = newGrid.length;
         const gridWidth = newGrid[0]?.length || 1;
-        const colsPerNote = Math.max(1, Math.floor(gridWidth / numNotes));
+        const instruments = selectedInstrumentSetRef.current.instruments;
 
         for (let y = 0; y < gridHeight; y++) {
           for (let x = 0; x < gridWidth; x++) {
             if (newGrid[y][x] === 2) {
-              const noteIndex = Math.floor(x / colsPerNote) % numNotes;
-              const midiNote = scaleNotes[noteIndex];
               
-              if (midiNote !== undefined) {
-                let instrument: InstrumentName = 'acoustic_grand_piano';
-                if (x < gridWidth / 2 && y < gridHeight / 2) {
-                  instrument = 'violin'; // Top-left
-                } else if (x >= gridWidth / 2 && y < gridHeight / 2) {
-                  instrument = 'viola'; // Top-right
-                } else if (x < gridWidth / 2 && y >= gridHeight / 2) {
-                  instrument = 'acoustic_guitar_nylon'; // Bottom-left
+              let instrument: InstrumentName;
+              if (x < gridWidth / 2 && y < gridHeight / 2) {
+                instrument = instruments.q1;
+              } else if (x >= gridWidth / 2 && y < gridHeight / 2) {
+                instrument = instruments.q2;
+              } else if (x < gridWidth / 2 && y >= gridHeight / 2) {
+                instrument = instruments.q3;
+              } else {
+                instrument = instruments.q4;
+              }
+              
+              let midiNote: number | undefined;
+              if (instrument === 'synth_drum') {
+                const drumNotes = [36, 38, 42, 49];
+                const drumIndex = (x - Math.floor(gridWidth / 2)) % drumNotes.length;
+                midiNote = drumNotes[drumIndex];
+              } else {
+                switch (melodyModeRef.current) {
+                  case 'Horizontal': {
+                    const colsPerNote = Math.max(1, Math.floor(gridWidth / numNotes));
+                    const noteIndex = Math.floor(x / colsPerNote) % numNotes;
+                    midiNote = scaleNotes[noteIndex];
+                    break;
+                  }
+                  case 'Vertical': {
+                    const rowsPerNote = Math.max(1, Math.floor(gridHeight / numNotes));
+                    const noteIndex = Math.floor(y / rowsPerNote) % numNotes;
+                    midiNote = scaleNotes[noteIndex];
+                    break;
+                  }
+                  case 'Random': {
+                    midiNote = scaleNotes[Math.floor(Math.random() * numNotes)];
+                    break;
+                  }
                 }
+              }
 
-                // Avoid playing same note with same instrument
+              if (midiNote !== undefined) {
                 if (!notesToPlay.some(n => n.midiNote === midiNote && n.instrument === instrument)) {
                   notesToPlay.push({ midiNote, instrument });
                 }
@@ -107,7 +138,8 @@ const CellsPage = () => {
     });
 
     setGeneration((g) => g + 1);
-    setTimeout(runSimulation, speedRef.current);
+    const timeout = (60 * 1000) / bpmRef.current;
+    setTimeout(runSimulation, timeout);
   }, []);
 
   const resetGrid = useCallback(() => {
@@ -141,25 +173,31 @@ const CellsPage = () => {
 
   useEffect(() => {
     if (isRunning) {
-      if (isMusicEnabled && !audioEngineRef.current) {
-        audioEngineRef.current = new AudioEngine();
-      }
-      audioEngineRef.current?.start();
-      runningRef.current = true;
-      runSimulation();
+      const startEngine = async () => {
+        if (isMusicEnabled && !audioEngineRef.current) {
+          audioEngineRef.current = new AudioEngine();
+        }
+        await audioEngineRef.current?.start();
+        runningRef.current = true;
+        runSimulation();
+      };
+      startEngine();
     }
   }, [isRunning, runSimulation, isMusicEnabled]);
 
   const handleTogglePlay = () => {
     setIsRunning(!isRunning);
+    if (isRunning) {
+      audioEngineRef.current?.stopAllSounds();
+    }
   };
 
   const handleReset = () => {
     resetGrid();
   };
 
-  const handleSpeedChange = (newSpeed: number) => {
-    setSpeed(newSpeed);
+  const handleBpmChange = (newBpm: number) => {
+    setBpm(newBpm);
   };
 
   const handlePatternChange = (pattern: Pattern) => {
@@ -171,10 +209,6 @@ const CellsPage = () => {
     resetGrid();
   }, [selectedPattern, resetGrid]);
 
-  const handleColorSchemeChange = (scheme: ColorScheme) => {
-    setSelectedColorScheme(scheme);
-  };
-
   const handleGlitchLevelChange = (level: GlitchLevel) => {
     setGlitchLevel(level);
   };
@@ -183,8 +217,12 @@ const CellsPage = () => {
     setIsMusicEnabled(prev => !prev);
   }
 
-  const handleScaleChange = (scale: Scale) => {
-    setSelectedScale(scale);
+  const handleInstrumentSetChange = (set: InstrumentSet) => {
+    setSelectedInstrumentSet(set);
+  }
+
+  const handleMelodyModeChange = (mode: MelodyMode) => {
+    setMelodyMode(mode);
   }
 
   return (
@@ -195,7 +233,7 @@ const CellsPage = () => {
       >
         <Grid
           grid={grid}
-          colorScheme={selectedColorScheme}
+          colorScheme={COLOR_SCHEMES.find(s => s.name === 'Ripple') || COLOR_SCHEMES[0]}
           generation={generation}
         />
       </div>
@@ -204,18 +242,18 @@ const CellsPage = () => {
           isRunning={isRunning}
           onTogglePlay={handleTogglePlay}
           onReset={handleReset}
-          speed={speed}
-          onSpeedChange={handleSpeedChange}
+          bpm={bpm}
+          onBpmChange={handleBpmChange}
           selectedPattern={selectedPattern}
           onPatternChange={handlePatternChange}
-          selectedColorScheme={selectedColorScheme}
-          onColorSchemeChange={handleColorSchemeChange}
           glitchLevel={glitchLevel}
           onGlitchLevelChange={handleGlitchLevelChange}
           isMusicEnabled={isMusicEnabled}
           onToggleMusic={handleToggleMusic}
-          selectedScale={selectedScale}
-          onScaleChange={handleScaleChange}
+          selectedInstrumentSet={selectedInstrumentSet}
+          onInstrumentSetChange={handleInstrumentSetChange}
+          melodyMode={melodyMode}
+          onMelodyModeChange={handleMelodyModeChange}
         />
       </div>
     </div>

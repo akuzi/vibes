@@ -1,45 +1,44 @@
 import React from 'react';
 import { Pattern, PATTERNS } from '@/lib/patterns';
-import { ColorScheme, COLOR_SCHEMES } from '@/lib/colors';
-import { GlitchLevel } from '@/lib/game-of-life';
-import { Scale, SCALES } from '@/lib/music';
+import { GlitchLevel, MelodyMode } from '@/lib/game-of-life';
+import { InstrumentSet, INSTRUMENT_SETS } from '@/lib/audio';
 
 interface ControlsProps {
   isRunning: boolean;
   onTogglePlay: () => void;
   onReset: () => void;
-  onSpeedChange: (speed: number) => void;
-  speed: number;
+  onBpmChange: (speed: number) => void;
+  bpm: number;
   onPatternChange: (pattern: Pattern) => void;
   selectedPattern: Pattern;
-  onColorSchemeChange: (scheme: ColorScheme) => void;
-  selectedColorScheme: ColorScheme;
   glitchLevel: GlitchLevel;
   onGlitchLevelChange: (level: GlitchLevel) => void;
   isMusicEnabled: boolean;
   onToggleMusic: () => void;
-  selectedScale: Scale;
-  onScaleChange: (scale: Scale) => void;
+  selectedInstrumentSet: InstrumentSet;
+  onInstrumentSetChange: (instrumentSet: InstrumentSet) => void;
+  melodyMode: MelodyMode;
+  onMelodyModeChange: (mode: MelodyMode) => void;
 }
 
 const Controls: React.FC<ControlsProps> = ({
   isRunning,
   onTogglePlay,
   onReset,
-  onSpeedChange,
-  speed,
+  onBpmChange,
+  bpm,
   onPatternChange,
   selectedPattern,
-  onColorSchemeChange,
-  selectedColorScheme,
   glitchLevel,
   onGlitchLevelChange,
   isMusicEnabled,
   onToggleMusic,
-  selectedScale,
-  onScaleChange,
+  selectedInstrumentSet,
+  onInstrumentSetChange,
+  melodyMode,
+  onMelodyModeChange,
 }) => {
-  if (!selectedColorScheme || !selectedPattern || !selectedScale) {
+  if (!selectedPattern || !selectedInstrumentSet) {
     // This can happen briefly on hot-reload.
     // Return null or a loading state to prevent crashing.
     return null;
@@ -59,18 +58,18 @@ const Controls: React.FC<ControlsProps> = ({
         Reset
       </button>
       <div className="flex items-center space-x-2">
-        <label htmlFor="speed">Speed:</label>
+        <label htmlFor="speed">BPM:</label>
         <input
           type="range"
           id="speed"
-          min="50"
-          max="1000"
-          step="50"
-          value={speed}
-          onChange={(e) => onSpeedChange(Number(e.target.value))}
+          min="40"
+          max="240"
+          step="1"
+          value={bpm}
+          onChange={(e) => onBpmChange(Number(e.target.value))}
           className="w-24 md:w-48"
         />
-        <span>{speed}ms</span>
+        <span>{bpm}</span>
       </div>
       <div className="flex items-center space-x-2">
         <label htmlFor="pattern">Pattern:</label>
@@ -88,26 +87,6 @@ const Controls: React.FC<ControlsProps> = ({
           {PATTERNS.map(p => (
             <option key={p.name} value={p.name}>
               {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex items-center space-x-2">
-        <label htmlFor="color-scheme">Color Scheme:</label>
-        <select
-          id="color-scheme"
-          value={selectedColorScheme.name}
-          onChange={(e) => {
-            const newScheme = COLOR_SCHEMES.find(s => s.name === e.target.value);
-            if (newScheme) {
-              onColorSchemeChange(newScheme);
-            }
-          }}
-          className="px-2 py-1 border rounded"
-        >
-          {COLOR_SCHEMES.map(s => (
-            <option key={s.name} value={s.name}>
-              {s.name}
             </option>
           ))}
         </select>
@@ -138,26 +117,41 @@ const Controls: React.FC<ControlsProps> = ({
         </button>
       </div>
       {isMusicEnabled && (
-        <div className="flex items-center space-x-2">
-          <label htmlFor="scale">Scale:</label>
-          <select
-            id="scale"
-            value={selectedScale.name}
-            onChange={(e) => {
-              const newScale = SCALES.find(s => s.name === e.target.value);
-              if (newScale) {
-                onScaleChange(newScale);
-              }
-            }}
-            className="px-2 py-1 border rounded"
-          >
-            {SCALES.map(s => (
-              <option key={s.name} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <>
+          <div className="flex items-center space-x-2">
+            <label htmlFor="instrument-set">Instruments:</label>
+            <select
+              id="instrument-set"
+              value={selectedInstrumentSet.name}
+              onChange={(e) => {
+                const newSet = INSTRUMENT_SETS.find(s => s.name === e.target.value);
+                if (newSet) {
+                  onInstrumentSetChange(newSet);
+                }
+              }}
+              className="px-2 py-1 border rounded"
+            >
+              {INSTRUMENT_SETS.map(s => (
+                <option key={s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center space-x-2">
+            <label htmlFor="melody-mode">Melody Mode:</label>
+            <select
+              id="melody-mode"
+              value={melodyMode}
+              onChange={(e) => onMelodyModeChange(e.target.value as MelodyMode)}
+              className="px-2 py-1 border rounded"
+            >
+              <option value="Horizontal">Horizontal</option>
+              <option value="Vertical">Vertical</option>
+              <option value="Random">Random</option>
+            </select>
+          </div>
+        </>
       )}
     </div>
   );
