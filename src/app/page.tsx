@@ -16,7 +16,7 @@ export default function Home() {
                     <Link href="/experiments/pncalc" className="hover:bg-green-900 p-2 rounded">
                         <p>
                             <span className="text-blue-400">[02]</span>
-                            <span className="text-white ml-4">PN/RPN Calc</span>
+                            <span className="text-white ml-4">Polish Notation Calculator</span>
                         </p>
                     </Link>
                 </div>

@@ -13,7 +13,7 @@ import {
 } from '@/lib/game-of-life';
 import { PATTERNS, Pattern } from '@/lib/patterns';
 import { COLOR_SCHEMES } from '@/lib/colors';
-import { SCALES, Scale } from '@/lib/music';
+import { SCALES } from '@/lib/music';
 import { AudioEngine, InstrumentName, InstrumentSet, INSTRUMENT_SETS } from '@/lib/audio';
 
 const CellsPage = () => {
