@@ -82,7 +82,7 @@ const PolishNotationCalcPage = () => {
     }
 
     if (token === 'Enter') {
-      let newStack = [...stack];
+      const newStack = [...stack];
       if (currentInput !== '') {
         newStack.push(Number(currentInput));
         setCurrentInput('');
@@ -99,7 +99,7 @@ const PolishNotationCalcPage = () => {
     
     if (isOperator(token)) {
       if (notation === 'prefix') {
-        let newStack = [...stack];
+        const newStack = [...stack];
         if (currentInput !== '') {
           newStack.push(Number(currentInput));
           setCurrentInput('');
@@ -107,7 +107,7 @@ const PolishNotationCalcPage = () => {
         newStack.push(token);
         setStack(newStack);
       } else { // RPN/postfix immediate evaluation
-        let newStack = [...stack];
+        const newStack = [...stack];
         if (currentInput !== '') {
           newStack.push(Number(currentInput));
           setCurrentInput('');
