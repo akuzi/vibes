@@ -30,8 +30,13 @@ const Controls: React.FC<ControlsProps> = ({
   glitchLevel,
   onGlitchLevelChange,
 }) => {
+  if (!selectedColorScheme) {
+    // This can happen briefly on hot-reload.
+    // Return null or a loading state to prevent crashing.
+    return null;
+  }
   return (
-    <div className="flex items-center space-x-4 p-4 bg-gray-100 rounded-lg">
+    <div className="flex flex-wrap items-center justify-center gap-4 p-4 bg-gray-100 rounded-lg">
       <button
         onClick={onTogglePlay}
         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -54,7 +59,7 @@ const Controls: React.FC<ControlsProps> = ({
           step="50"
           value={speed}
           onChange={(e) => onSpeedChange(Number(e.target.value))}
-          className="w-48"
+          className="w-24 md:w-48"
         />
         <span>{speed}ms</span>
       </div>
@@ -82,7 +87,7 @@ const Controls: React.FC<ControlsProps> = ({
         <label htmlFor="color-scheme">Color Scheme:</label>
         <select
           id="color-scheme"
-          value={selectedColorScheme ? selectedColorScheme.name : ''}
+          value={selectedColorScheme.name}
           onChange={(e) => {
             const newScheme = COLOR_SCHEMES.find(s => s.name === e.target.value);
             if (newScheme) {
