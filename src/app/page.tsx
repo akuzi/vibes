@@ -19,6 +19,12 @@ export default function Home() {
                             <span className="text-white ml-4">Polish Notation Calculator</span>
                         </p>
                     </Link>
+                    <Link href="/experiments/pretzl" className="hover:bg-green-900 p-2 rounded">
+                        <p>
+                            <span className="text-blue-400">[03]</span>
+                            <span className="text-white ml-4">Pretzl</span>
+                        </p>
+                    </Link>
                 </div>
             </div>
         </div>
