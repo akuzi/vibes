@@ -20,7 +20,7 @@ const PolishNotationCalcPage = () => {
       case '-': return notation === 'prefix' ? a - b : b - a;
       case '*': return a * b;
       case '/': 
-        if (notation === 'prefix') return b === 0 ? Infinity : a / b;
+        if (notation === 'prefix') return b === 0 ? Infinity : a / b ;
         return a === 0 ? Infinity : b / a;
       default: throw new Error(`Unknown operator: ${op}`);
     }
