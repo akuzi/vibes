@@ -8,6 +8,7 @@ export class AudioEngine {
 
   private initialize = () => {
     if (!this.audioContext) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.mainGain = this.audioContext.createGain();
       this.mainGain.gain.value = 0.3; // Initial volume

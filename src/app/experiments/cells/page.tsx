@@ -9,7 +9,6 @@ import {
   CELL_SIZE,
   createGridWithPattern,
   GlitchLevel,
-  CellState,
 } from '@/lib/game-of-life';
 import { PATTERNS, Pattern } from '@/lib/patterns';
 import { COLOR_SCHEMES, ColorScheme } from '@/lib/colors';
