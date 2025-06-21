@@ -9,22 +9,28 @@ import {
   CELL_SIZE,
   createGridWithPattern,
   GlitchLevel,
+  CellState,
 } from '@/lib/game-of-life';
 import { PATTERNS, Pattern } from '@/lib/patterns';
 import { COLOR_SCHEMES, ColorScheme } from '@/lib/colors';
+import { SCALES, Scale } from '@/lib/music';
+import { AudioEngine } from '@/lib/audio';
 
 const CellsPage = () => {
   const [grid, setGrid] = useState<number[][]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [speed, setSpeed] = useState(100); // ms
-  const [selectedPattern, setSelectedPattern] = useState<Pattern>(PATTERNS[0]);
+  const [speed, setSpeed] = useState(300); // ms
+  const [selectedPattern, setSelectedPattern] = useState<Pattern>(PATTERNS.find(p => p.name === 'Diehard') || PATTERNS[0]);
   const [selectedColorScheme, setSelectedColorScheme] = useState<ColorScheme>(
-    COLOR_SCHEMES[0]
+    COLOR_SCHEMES.find(s => s.name === 'Ripple') || COLOR_SCHEMES[0]
   );
   const [generation, setGeneration] = useState(0);
-  const [glitchLevel, setGlitchLevel] = useState<GlitchLevel>('None');
+  const [glitchLevel, setGlitchLevel] = useState<GlitchLevel>('Low');
+  const [isMusicEnabled, setIsMusicEnabled] = useState(true);
+  const [selectedScale, setSelectedScale] = useState<Scale>(SCALES[0]);
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
+  const audioEngineRef = useRef<AudioEngine | null>(null);
 
   const runningRef = useRef(isRunning);
   runningRef.current = isRunning;
@@ -34,12 +40,48 @@ const CellsPage = () => {
 
   const glitchLevelRef = useRef(glitchLevel);
   glitchLevelRef.current = glitchLevel;
+  
+  const isMusicEnabledRef = useRef(isMusicEnabled);
+  isMusicEnabledRef.current = isMusicEnabled;
+
+  const selectedScaleRef = useRef(selectedScale);
+  selectedScaleRef.current = selectedScale;
 
   const runSimulation = useCallback(() => {
     if (!runningRef.current) {
       return;
     }
-    setGrid((g) => getNextGeneration(g, glitchLevelRef.current));
+
+    setGrid((prevGrid) => {
+      const newGrid = getNextGeneration(prevGrid, glitchLevelRef.current);
+
+      if (isMusicEnabledRef.current && audioEngineRef.current) {
+        const notesToPlay: number[] = [];
+        const scaleNotes = selectedScaleRef.current.notes;
+        const numNotes = scaleNotes.length;
+        const gridWidth = newGrid[0]?.length || 1;
+        const colsPerNote = Math.max(1, Math.floor(gridWidth / numNotes));
+
+        for (let y = 0; y < newGrid.length; y++) {
+          for (let x = 0; x < gridWidth; x++) {
+            if (newGrid[y][x] === 2) {
+              const noteIndex = Math.floor(x / colsPerNote) % numNotes;
+              const midiNote = scaleNotes[noteIndex];
+              // Avoid playing same note multiple times in one generation
+              if (midiNote !== undefined && !notesToPlay.includes(midiNote)) {
+                 notesToPlay.push(midiNote);
+              }
+            }
+          }
+        }
+        notesToPlay.forEach(note => {
+          audioEngineRef.current?.playNote(note);
+        })
+      }
+
+      return newGrid;
+    });
+
     setGeneration((g) => g + 1);
     setTimeout(runSimulation, speedRef.current);
   }, []);
@@ -75,10 +117,14 @@ const CellsPage = () => {
 
   useEffect(() => {
     if (isRunning) {
+      if (isMusicEnabled && !audioEngineRef.current) {
+        audioEngineRef.current = new AudioEngine();
+      }
+      audioEngineRef.current?.start();
       runningRef.current = true;
       runSimulation();
     }
-  }, [isRunning, runSimulation]);
+  }, [isRunning, runSimulation, isMusicEnabled]);
 
   const handleTogglePlay = () => {
     setIsRunning(!isRunning);
@@ -109,6 +155,14 @@ const CellsPage = () => {
     setGlitchLevel(level);
   };
 
+  const handleToggleMusic = () => {
+    setIsMusicEnabled(prev => !prev);
+  }
+
+  const handleScaleChange = (scale: Scale) => {
+    setSelectedScale(scale);
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <div
@@ -134,6 +188,10 @@ const CellsPage = () => {
           onColorSchemeChange={handleColorSchemeChange}
           glitchLevel={glitchLevel}
           onGlitchLevelChange={handleGlitchLevelChange}
+          isMusicEnabled={isMusicEnabled}
+          onToggleMusic={handleToggleMusic}
+          selectedScale={selectedScale}
+          onScaleChange={handleScaleChange}
         />
       </div>
     </div>

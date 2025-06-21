@@ -2,6 +2,7 @@ import React from 'react';
 import { Pattern, PATTERNS } from '@/lib/patterns';
 import { ColorScheme, COLOR_SCHEMES } from '@/lib/colors';
 import { GlitchLevel } from '@/lib/game-of-life';
+import { Scale, SCALES } from '@/lib/music';
 
 interface ControlsProps {
   isRunning: boolean;
@@ -15,6 +16,10 @@ interface ControlsProps {
   selectedColorScheme: ColorScheme;
   glitchLevel: GlitchLevel;
   onGlitchLevelChange: (level: GlitchLevel) => void;
+  isMusicEnabled: boolean;
+  onToggleMusic: () => void;
+  selectedScale: Scale;
+  onScaleChange: (scale: Scale) => void;
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -29,8 +34,12 @@ const Controls: React.FC<ControlsProps> = ({
   selectedColorScheme,
   glitchLevel,
   onGlitchLevelChange,
+  isMusicEnabled,
+  onToggleMusic,
+  selectedScale,
+  onScaleChange,
 }) => {
-  if (!selectedColorScheme) {
+  if (!selectedColorScheme || !selectedPattern || !selectedScale) {
     // This can happen briefly on hot-reload.
     // Return null or a loading state to prevent crashing.
     return null;
@@ -117,6 +126,39 @@ const Controls: React.FC<ControlsProps> = ({
           <option value="High">High</option>
         </select>
       </div>
+      <div className="flex items-center space-x-2">
+        <label htmlFor="music-toggle">Music:</label>
+        <button
+          onClick={onToggleMusic}
+          className={`px-4 py-2 text-white rounded ${
+            isMusicEnabled ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600'
+          }`}
+        >
+          {isMusicEnabled ? 'On' : 'Off'}
+        </button>
+      </div>
+      {isMusicEnabled && (
+        <div className="flex items-center space-x-2">
+          <label htmlFor="scale">Scale:</label>
+          <select
+            id="scale"
+            value={selectedScale.name}
+            onChange={(e) => {
+              const newScale = SCALES.find(s => s.name === e.target.value);
+              if (newScale) {
+                onScaleChange(newScale);
+              }
+            }}
+            className="px-2 py-1 border rounded"
+          >
+            {SCALES.map(s => (
+              <option key={s.name} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 };

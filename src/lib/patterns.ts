@@ -1,4 +1,4 @@
-import { CELL_STATE } from './game-of-life';
+import { CellState } from './game-of-life';
 
 export interface Pattern {
   name: string;
@@ -13,9 +13,9 @@ export const PATTERNS: Pattern[] = [
   {
     name: 'Glider',
     pattern: [
-      [0, CELL_STATE.NEW, 0],
-      [0, 0, CELL_STATE.NEW],
-      [CELL_STATE.NEW, CELL_STATE.NEW, CELL_STATE.NEW],
+      [0, CellState.NEW, 0],
+      [0, 0, CellState.NEW],
+      [CellState.NEW, CellState.NEW, CellState.NEW],
     ],
   },
   {
@@ -34,7 +34,7 @@ export const PATTERNS: Pattern[] = [
       [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0],
-    ].map(row => row.map(cell => cell === 1 ? CELL_STATE.NEW : CELL_STATE.DEAD)),
+    ].map(row => row.map(cell => cell === 1 ? CellState.NEW : CellState.DEAD)),
   },
   {
     name: 'Gosper Glider Gun',
@@ -48,7 +48,7 @@ export const PATTERNS: Pattern[] = [
       [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    ].map(row => row.map(cell => cell === 1 ? CELL_STATE.NEW : CELL_STATE.DEAD)),
+    ].map(row => row.map(cell => cell === 1 ? CellState.NEW : CellState.DEAD)),
   },
   {
     name: 'Diehard',
@@ -56,7 +56,7 @@ export const PATTERNS: Pattern[] = [
       [0, 0, 0, 0, 0, 0, 1, 0],
       [1, 1, 0, 0, 0, 0, 0, 0],
       [0, 1, 0, 0, 0, 1, 1, 1],
-    ].map(row => row.map(cell => cell === 1 ? CELL_STATE.NEW : CELL_STATE.DEAD)),
+    ].map(row => row.map(cell => cell === 1 ? CellState.NEW : CellState.DEAD)),
   },
   {
     name: 'Acorn',
@@ -64,7 +64,7 @@ export const PATTERNS: Pattern[] = [
       [0, 1, 0, 0, 0, 0, 0],
       [0, 0, 0, 1, 0, 0, 0],
       [1, 1, 0, 0, 1, 1, 1],
-    ].map(row => row.map(cell => cell === 1 ? CELL_STATE.NEW : CELL_STATE.DEAD)),
+    ].map(row => row.map(cell => cell === 1 ? CellState.NEW : CellState.DEAD)),
   },
   {
     name: 'R-pentomino',
@@ -72,7 +72,7 @@ export const PATTERNS: Pattern[] = [
       [0, 1, 1],
       [1, 1, 0],
       [0, 1, 0],
-    ].map(row => row.map(cell => cell === 1 ? CELL_STATE.NEW : CELL_STATE.DEAD)),
+    ].map(row => row.map(cell => cell === 1 ? CellState.NEW : CellState.DEAD)),
   },
   {
     name: 'Lightweight spaceship',
@@ -81,6 +81,6 @@ export const PATTERNS: Pattern[] = [
       [0, 1, 1, 1, 1],
       [1, 1, 1, 1, 0],
       [0, 0, 1, 1, 0]
-    ].map(row => row.map(cell => cell === 1 ? CELL_STATE.NEW : CELL_STATE.DEAD)),
+    ].map(row => row.map(cell => cell === 1 ? CellState.NEW : CellState.DEAD)),
   }
 ];

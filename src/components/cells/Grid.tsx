@@ -1,5 +1,5 @@
 import React from 'react';
-import { CELL_SIZE, CELL_STATE } from '@/lib/game-of-life';
+import { CELL_SIZE, CellState } from '@/lib/game-of-life';
 import { ColorScheme } from '@/lib/colors';
 
 interface GridProps {
@@ -16,11 +16,11 @@ const Grid: React.FC<GridProps> = ({ grid, colorScheme, generation }) => {
     if (colorScheme.name === 'Rainbow') {
       const hue = (generation * 2) % 360;
       switch (cellState) {
-        case CELL_STATE.SURVIVED:
+        case CellState.SURVIVED:
           return `hsl(${hue}, 100%, 50%)`;
-        case CELL_STATE.NEW:
+        case CellState.NEW:
           return `hsl(${(hue + 60) % 360}, 100%, 70%)`;
-        case CELL_STATE.DIED:
+        case CellState.DIED:
           return `hsl(${(hue + 120) % 360}, 100%, 30%)`;
         default:
           return colorScheme.dead;
@@ -35,11 +35,11 @@ const Grid: React.FC<GridProps> = ({ grid, colorScheme, generation }) => {
       const distance = Math.sqrt(dx * dx + dy * dy);
       const hue = (distance - generation) * 3 % 360;
       switch (cellState) {
-        case CELL_STATE.SURVIVED:
+        case CellState.SURVIVED:
           return `hsl(${hue}, 100%, 50%)`;
-        case CELL_STATE.NEW:
+        case CellState.NEW:
           return `hsl(${(hue + 60) % 360}, 100%, 70%)`;
-        case CELL_STATE.DIED:
+        case CellState.DIED:
           return `hsl(${(hue + 120) % 360}, 100%, 30%)`;
         default:
           return colorScheme.dead;
@@ -47,11 +47,11 @@ const Grid: React.FC<GridProps> = ({ grid, colorScheme, generation }) => {
     }
 
     switch (cellState) {
-      case CELL_STATE.SURVIVED:
+      case CellState.SURVIVED:
         return colorScheme.survived;
-      case CELL_STATE.NEW:
+      case CellState.NEW:
         return colorScheme.new;
-      case CELL_STATE.DIED:
+      case CellState.DIED:
         return colorScheme.died;
       default:
         return colorScheme.dead;

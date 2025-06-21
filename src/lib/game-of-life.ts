@@ -1,16 +1,16 @@
 export const CELL_SIZE = 10; // px
 
-export const CELL_STATE = {
-  DEAD: 0,
-  SURVIVED: 1,
-  NEW: 2,
-  DIED: 3,
-};
+export enum CellState {
+  DEAD,
+  SURVIVED,
+  NEW,
+  DIED,
+}
 
 export const createEmptyGrid = (width: number, height: number): number[][] => {
   const rows = [];
   for (let i = 0; i < height; i++) {
-    rows.push(Array.from(Array(width), () => CELL_STATE.DEAD));
+    rows.push(Array.from(Array(width), () => CellState.DEAD));
   }
   return rows;
 };
@@ -20,7 +20,7 @@ export const createRandomGrid = (width: number, height: number): number[][] => {
   for (let i = 0; i < height; i++) {
     rows.push(
       Array.from(Array(width), () =>
-        Math.random() > 0.7 ? CELL_STATE.NEW : CELL_STATE.DEAD
+        Math.random() > 0.7 ? CellState.NEW : CellState.DEAD
       )
     );
   }
@@ -78,7 +78,7 @@ const countNeighbors = (grid: number[][], x: number, y: number): number => {
       const row = (x + i + height) % height;
       const col = (y + j + width) % width;
       const cellState = grid[row][col];
-      if (cellState === CELL_STATE.SURVIVED || cellState === CELL_STATE.NEW) {
+      if (cellState === CellState.SURVIVED || cellState === CellState.NEW) {
         sum += 1;
       }
     }
@@ -101,19 +101,19 @@ export const getNextGeneration = (
       const neighbors = countNeighbors(grid, i, j);
       const cellState = grid[i][j];
       const wasAlive =
-        cellState === CELL_STATE.SURVIVED || cellState === CELL_STATE.NEW;
+        cellState === CellState.SURVIVED || cellState === CellState.NEW;
 
       if (wasAlive) {
         if (neighbors < 2 || neighbors > 3) {
-          newGrid[i][j] = CELL_STATE.DIED;
+          newGrid[i][j] = CellState.DIED;
         } else {
-          newGrid[i][j] = CELL_STATE.SURVIVED;
+          newGrid[i][j] = CellState.SURVIVED;
         }
       } else {
         if (neighbors === 3) {
-          newGrid[i][j] = CELL_STATE.NEW;
+          newGrid[i][j] = CellState.NEW;
         } else {
-          newGrid[i][j] = CELL_STATE.DEAD;
+          newGrid[i][j] = CellState.DEAD;
         }
       }
     }
@@ -132,7 +132,7 @@ export const getNextGeneration = (
           const y = glitchY + j;
           if (x < width && y < height) {
             newGrid[y][x] =
-              Math.random() > 0.5 ? CELL_STATE.NEW : CELL_STATE.DEAD;
+              Math.random() > 0.5 ? CellState.NEW : CellState.DEAD;
           }
         }
       }
