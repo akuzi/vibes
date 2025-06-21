@@ -2,14 +2,20 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center p-24">
-      <h1 className="text-5xl font-bold mb-8">Vibe Coding Experiments</h1>
-      <div className="grid grid-cols-1 gap-4">
-        <Link href="/experiments/cells" className="p-6 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-          <h2 className="text-2xl font-semibold">Cells</h2>
-          <p>A blank canvas for cellular automata.</p>
-        </Link>
-      </div>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-black text-green-400 font-mono p-8">
+        <div className="w-full max-w-md">
+            <div className="border border-green-700 rounded-lg p-4">
+                <p className="text-yellow-400 mb-4">&gt; select experiment</p>
+                <div className="flex flex-col space-y-2">
+                    <Link href="/experiments/cells" className="hover:bg-green-900 p-2 rounded">
+                        <p>
+                            <span className="text-blue-400">[01]</span>
+                            <span className="text-white ml-4">Cells</span>
+                        </p>
+                    </Link>
+                </div>
+            </div>
+        </div>
     </main>
   );
 }
