@@ -13,7 +13,7 @@ import {
 import { PATTERNS, Pattern } from '@/lib/patterns';
 import { COLOR_SCHEMES, ColorScheme } from '@/lib/colors';
 import { SCALES, Scale } from '@/lib/music';
-import { AudioEngine } from '@/lib/audio';
+import { AudioEngine, InstrumentName } from '@/lib/audio';
 
 const CellsPage = () => {
   const [grid, setGrid] = useState<number[][]>([]);
@@ -26,7 +26,7 @@ const CellsPage = () => {
   const [generation, setGeneration] = useState(0);
   const [glitchLevel, setGlitchLevel] = useState<GlitchLevel>('Low');
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
-  const [selectedScale, setSelectedScale] = useState<Scale>(SCALES[0]);
+  const [selectedScale, setSelectedScale] = useState<Scale>(SCALES.find(s => s.name === 'C Pentatonic Minor') || SCALES[0]);
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
@@ -55,26 +55,51 @@ const CellsPage = () => {
       const newGrid = getNextGeneration(prevGrid, glitchLevelRef.current);
 
       if (isMusicEnabledRef.current && audioEngineRef.current) {
-        const notesToPlay: number[] = [];
+        const notesToPlay: { midiNote: number; instrument: InstrumentName }[] = [];
         const scaleNotes = selectedScaleRef.current.notes;
         const numNotes = scaleNotes.length;
+        const gridHeight = newGrid.length;
         const gridWidth = newGrid[0]?.length || 1;
         const colsPerNote = Math.max(1, Math.floor(gridWidth / numNotes));
 
-        for (let y = 0; y < newGrid.length; y++) {
+        for (let y = 0; y < gridHeight; y++) {
           for (let x = 0; x < gridWidth; x++) {
             if (newGrid[y][x] === 2) {
               const noteIndex = Math.floor(x / colsPerNote) % numNotes;
               const midiNote = scaleNotes[noteIndex];
-              // Avoid playing same note multiple times in one generation
-              if (midiNote !== undefined && !notesToPlay.includes(midiNote)) {
-                 notesToPlay.push(midiNote);
+              
+              if (midiNote !== undefined) {
+                let instrument: InstrumentName = 'acoustic_grand_piano';
+                if (x < gridWidth / 2 && y < gridHeight / 2) {
+                  instrument = 'violin'; // Top-left
+                } else if (x >= gridWidth / 2 && y < gridHeight / 2) {
+                  instrument = 'viola'; // Top-right
+                } else if (x < gridWidth / 2 && y >= gridHeight / 2) {
+                  instrument = 'acoustic_guitar_nylon'; // Bottom-left
+                }
+
+                // Avoid playing same note with same instrument
+                if (!notesToPlay.some(n => n.midiNote === midiNote && n.instrument === instrument)) {
+                  notesToPlay.push({ midiNote, instrument });
+                }
               }
             }
           }
         }
-        notesToPlay.forEach(note => {
-          audioEngineRef.current?.playNote(note);
+
+        // Limit the number of notes playing at once for clarity
+        const maxNotes = 8;
+        if (notesToPlay.length > maxNotes) {
+          // Shuffle and pick a few notes to play
+          for (let i = notesToPlay.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [notesToPlay[i], notesToPlay[j]] = [notesToPlay[j], notesToPlay[i]];
+          }
+          notesToPlay.length = maxNotes;
+        }
+
+        notesToPlay.forEach(({midiNote, instrument}) => {
+          audioEngineRef.current?.playNote(midiNote, instrument);
         })
       }
 

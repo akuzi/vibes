@@ -1,18 +1,20 @@
-const midiToFreq = (midi: number): number => {
-  return Math.pow(2, (midi - 69) / 12) * 440;
-};
+import Soundfont from 'soundfont-player';
+
+export type InstrumentName =
+  | 'acoustic_grand_piano'
+  | 'violin'
+  | 'viola'
+  | 'acoustic_guitar_nylon';
 
 export class AudioEngine {
   private audioContext: AudioContext | null = null;
-  private mainGain: GainNode | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private instrumentCache: Partial<Record<InstrumentName, any>> = {};
 
   private initialize = () => {
     if (!this.audioContext) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      this.mainGain = this.audioContext.createGain();
-      this.mainGain.gain.value = 0.3; // Initial volume
-      this.mainGain.connect(this.audioContext.destination);
     }
   }
 
@@ -23,26 +25,37 @@ export class AudioEngine {
     }
   }
 
-  public playNote = (midiNote: number, time: number = 0, duration: number = 0.5) => {
-    if (!this.audioContext || !this.mainGain) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async loadInstrument(instrumentName: InstrumentName): Promise<any> {
+    if (!this.audioContext) return null;
 
-    const freq = midiToFreq(midiNote);
-    const osc = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
+    if (this.instrumentCache[instrumentName]) {
+      return this.instrumentCache[instrumentName];
+    }
 
-    osc.connect(gainNode);
-    gainNode.connect(this.mainGain);
+    try {
+      const instrument = await Soundfont.instrument(this.audioContext, instrumentName);
+      this.instrumentCache[instrumentName] = instrument;
+      return instrument;
+    } catch (error) {
+      console.error(`Could not load instrument: ${instrumentName}`, error);
+      return null;
+    }
+  }
 
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(freq, this.audioContext.currentTime + time);
-
-    // Piano-like envelope
-    const now = this.audioContext.currentTime + time;
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(0.7, now + 0.02); // Fast attack
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration); // Decay
-
-    osc.start(now);
-    osc.stop(now + duration);
+  public playNote = async (
+    midiNote: number,
+    instrumentName: InstrumentName,
+  ) => {
+    if (!this.audioContext) return;
+    
+    try {
+      const instrument = await this.loadInstrument(instrumentName);
+      if (instrument) {
+        instrument.play(midiNote.toString());
+      }
+    } catch(e) {
+      console.log(e);
+    }
   };
 }
