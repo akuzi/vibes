@@ -5,14 +5,6 @@ export interface SampleProgram {
 
 export const PRETZL_SAMPLES: SampleProgram[] = [
   {
-    name: 'Simple Arithmetic',
-    code: 'print + 1 2'
-  },
-  {
-    name: 'Nested Expression',
-    code: 'print * (+ 1 2) 3'
-  },
-  {
     name: 'Factorial',
     code: `set factorial
   lambda n
@@ -20,7 +12,43 @@ export const PRETZL_SAMPLES: SampleProgram[] = [
       1
       (* n (factorial (- n 1)))
 
-print (factorial 5)`
+print "Enter a number to calculate factorial: "
+set num (input)
+print (concat "Factorial of " num " is: " (factorial num))`
+  },
+  {
+    name: 'Various Expressions',
+    code: `print "=== Various Expression Types ==="
+
+# Arithmetic expressions
+print "Arithmetic:"
+print (+ 1 2)
+print (* (+ 1 2) 3)
+print (/ (* (+ 1 2) 3) 2)
+
+# Comparison expressions
+print "Comparisons:"
+print (< 5 10)
+print (== (+ 2 3) 5)
+print (> 10 5)
+
+# String expressions
+print "Strings:"
+print "Hello World"
+print (concat "Hello" " " "World")
+print (concat "The answer is: " (+ 2 3))
+
+# List expressions
+print "Lists:"
+print [1 2 3 4 5]
+print (append [1 2 3] 4)
+print (length [10 20 30 40])
+
+# Mixed expressions
+print "Mixed:"
+print (concat "Sum of " (+ 1 2) " and " (+ 3 4) " is " (+ (+ 1 2) (+ 3 4)))
+print (if (> 5 3) "Five is greater than three" "This won't print")
+print (if (< 1 0) "This won't print" "One is not less than zero")`
   },
   {
     name: 'Function Composition',
@@ -30,13 +58,6 @@ set square lambda x (* x x)
 set squared_inc lambda x (square (inc x))
 
 print (squared_inc 3)`
-  },
-  {
-    name: 'Circle Area Calculator',
-    code: `print "Enter the radius of a circle: "
-set radius (input)
-set pi 3.14159
-print (concat "The area is: " (* pi (* radius radius)))`
   },
   {
     name: 'Number Sorter',
@@ -56,28 +77,48 @@ print (concat "Original numbers: " numbers)
 print (concat "Sorted numbers: " (sort numbers))`
   },
   {
-    name: 'For Loop Example',
-    code: `print "Counting from 1 to 5:"
+    name: 'Loop Examples',
+    code: `print "=== Various Loop Examples ==="
+
+# While loop - count up
+print "While loop counting up:"
 set i 1
+while (< i 6)
+  (begin
+    (print i)
+    (inc i))
 
-for (set i 1) (<= i 5) (set i (+ i 1))
-  (print i)`
-  },
-  {
-    name: 'List Literals',
-    code: `set numbers [1 2 3 4 5]
-set empty []
-set mixed [10 20 30]
+# While loop - count down
+print "While loop counting down:"
+set j 5
+while (> j 0)
+  (begin
+    (print j)
+    (dec j))
 
-print "Numbers:"
-print numbers
-print "Empty list:"
-print empty
-print "Mixed list:"
-print mixed
-print "First element:"
-print (get numbers 0)
-print "Length:"
-print (length numbers)`
+# For loop
+print "For loop:"
+for (set k 0) (< k 5) (inc k)
+  (print k)
+
+# While loop with condition
+print "While loop with condition:"
+set num 1
+while (< num 10)
+  (begin
+    (if (== (% num 2) 0)
+      (print (concat num " is even"))
+      (print (concat num " is odd")))
+    (inc num))
+
+# Loop with break-like behavior (using condition)
+print "Loop with early exit:"
+set counter 1
+while (< counter 10)
+  (begin
+    (print counter)
+    (if (== counter 5)
+      (set counter 10)
+      (inc counter)))`
   },
 ]; 

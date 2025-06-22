@@ -207,9 +207,10 @@ const PretzlPage = () => {
                       <h3 className="font-bold text-green-300 mb-2">Arithmetic</h3>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <p className="font-semibold">+ - * /</p>
+                          <p className="font-semibold">+ - * / %</p>
                           <pre className="bg-gray-900 p-1 rounded">+ 1 2    → 3</pre>
                           <pre className="bg-gray-900 p-1 rounded">* (+ 1 2) 3    → 9</pre>
+                          <pre className="bg-gray-900 p-1 rounded">% 7 3    → 1</pre>
                         </div>
                         <div>
                           <p className="font-semibold">Comparisons</p>
@@ -246,15 +247,23 @@ const PretzlPage = () => {
                         </div>
                         <div>
                           <p className="font-semibold">while</p>
-                          <pre className="bg-gray-900 p-1 rounded">while (&lt; i 10) (set i (+ i 1))</pre>
+                          <pre className="bg-gray-900 p-1 rounded">while (&lt; i 10) (inc i)</pre>
                         </div>
                         <div>
                           <p className="font-semibold">for</p>
-                          <pre className="bg-gray-900 p-1 rounded">for (set i 0) (&lt; i 5) (set i (+ i 1)) (print i)</pre>
+                          <pre className="bg-gray-900 p-1 rounded">for (set i 0) (&lt; i 5) (inc i) (print i)</pre>
                         </div>
                         <div>
                           <p className="font-semibold">begin</p>
                           <pre className="bg-gray-900 p-1 rounded">begin (print &quot;a&quot;) (print &quot;b&quot;) (print &quot;c&quot;)</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">inc</p>
+                          <pre className="bg-gray-900 p-1 rounded">inc i</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">dec</p>
+                          <pre className="bg-gray-900 p-1 rounded">dec j</pre>
                         </div>
                       </div>
                     </div>

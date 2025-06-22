@@ -21,6 +21,7 @@ const ARITIES: { [key: string]: number } = {
   '-': 2,
   '*': 2,
   '/': 2,
+  '%': 2,
   '<=': 2,
   '>=': 2,
   '<': 2,
@@ -41,18 +42,25 @@ const ARITIES: { [key: string]: number } = {
   'length': 1,
   'get': 2,
   'type': 1,
+  'inc': 1,
+  'dec': 1,
 };
 
 function tokenize(code: string): { token: string; line: number }[] {
+  // Remove comment lines (lines starting with #)
+  const lines = code.split('\n');
+  const filteredLines = lines.filter(line => !line.trim().startsWith('#'));
+  const filteredCode = filteredLines.join('\n');
+  
   // This more robust regex correctly handles strings with spaces, parentheses, square brackets, and other symbols.
   const regex = /"[^"]*"|[()\[\]]|[^\s()\[\]]+/g;
   const tokens: { token: string; line: number }[] = [];
   let match;
   let lineNumber = 1;
   
-  while ((match = regex.exec(code)) !== null) {
+  while ((match = regex.exec(filteredCode)) !== null) {
     // Count newlines before this match
-    const beforeMatch = code.substring(0, match.index);
+    const beforeMatch = filteredCode.substring(0, match.index);
     const newlinesBefore = (beforeMatch.match(/\n/g) || []).length;
     lineNumber = newlinesBefore + 1;
     
@@ -242,7 +250,7 @@ async function apply(func: EvaluatedValue, args: (EvaluatedValue | null)[], inpu
   }
 
   // Handle arithmetic operators (these need number arguments)
-  const arithmeticOps = ['+', '-', '*', '/', '<=', '>=', '<', '>', '=='];
+  const arithmeticOps = ['+', '-', '*', '/', '%', '<=', '>=', '<', '>', '=='];
   if (op && arithmeticOps.includes(op)) {
     const numArgs = args.map(a => {
       if (a === null) {
@@ -263,6 +271,9 @@ async function apply(func: EvaluatedValue, args: (EvaluatedValue | null)[], inpu
       case '/': 
         if (numArgs[1] === 0) throw new Error("Division by zero.");
         return numArgs[0] / numArgs[1];
+      case '%': 
+        if (numArgs[1] === 0) throw new Error("Modulus by zero.");
+        return numArgs[0] % numArgs[1];
       case '<=': return numArgs[0] <= numArgs[1] ? 1 : 0; // Use 1 for true, 0 for false
       case '>=': return numArgs[0] >= numArgs[1] ? 1 : 0;
       case '<': return numArgs[0] < numArgs[1] ? 1 : 0;
@@ -281,7 +292,7 @@ async function evaluate(expr: Expression, env: Environment, inputProvider: Input
     if (expr.type === 'symbol') {
       if (expr.value in env) return env[expr.value];
       // Check for built-in functions that are not special forms
-      if (Object.keys(ARITIES).includes(expr.value) && !['set', 'lambda', 'if'].includes(expr.value)) {
+      if (Object.keys(ARITIES).includes(expr.value) && !['set', 'lambda', 'if', 'inc', 'dec'].includes(expr.value)) {
         return expr.value;
       }
       throw new Error(`Undefined variable: ${expr.value} (line ${expr.line})`);
@@ -387,6 +398,24 @@ async function evaluate(expr: Expression, env: Environment, inputProvider: Input
         const input = await inputProvider();
         const num = Number(input);
         return isNaN(num) ? input : num;
+      }
+      case 'inc': {
+        const varNameNode = args[0] as Atom;
+        if (!varNameNode || varNameNode.type !== 'symbol') throw new Error(`Variable name for inc must be a symbol (line ${varNameNode?.line || 'unknown'})`);
+        if (!(varNameNode.value in env)) throw new Error(`Undefined variable: ${varNameNode.value} (line ${varNameNode.line})`);
+        const currentValue = env[varNameNode.value];
+        if (typeof currentValue !== 'number') throw new Error(`Cannot increment non-numeric variable: ${varNameNode.value} (line ${varNameNode.line})`);
+        env[varNameNode.value] = currentValue + 1;
+        return env[varNameNode.value];
+      }
+      case 'dec': {
+        const varNameNode = args[0] as Atom;
+        if (!varNameNode || varNameNode.type !== 'symbol') throw new Error(`Variable name for dec must be a symbol (line ${varNameNode?.line || 'unknown'})`);
+        if (!(varNameNode.value in env)) throw new Error(`Undefined variable: ${varNameNode.value} (line ${varNameNode.line})`);
+        const currentValue = env[varNameNode.value];
+        if (typeof currentValue !== 'number') throw new Error(`Cannot decrement non-numeric variable: ${varNameNode.value} (line ${varNameNode.line})`);
+        env[varNameNode.value] = currentValue - 1;
+        return env[varNameNode.value];
       }
     }
   }
