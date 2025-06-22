@@ -197,7 +197,7 @@ const PretzlPage = () => {
                         </div>
                         <div>
                           <p className="font-semibold">Strings</p>
-                          <pre className="bg-gray-900 p-1 rounded">"hello world"</pre>
+                          <pre className="bg-gray-900 p-1 rounded">&quot;hello world&quot;</pre>
                         </div>
                       </div>
                     </div>
@@ -242,7 +242,7 @@ const PretzlPage = () => {
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <p className="font-semibold">if</p>
-                          <pre className="bg-gray-900 p-1 rounded">if (&gt; x 5) "big" "small"</pre>
+                          <pre className="bg-gray-900 p-1 rounded">if (&gt; x 5) &quot;big&quot; &quot;small&quot;</pre>
                         </div>
                         <div>
                           <p className="font-semibold">while</p>
@@ -254,7 +254,7 @@ const PretzlPage = () => {
                         </div>
                         <div>
                           <p className="font-semibold">begin</p>
-                          <pre className="bg-gray-900 p-1 rounded">begin (print "a") (print "b") (print "c")</pre>
+                          <pre className="bg-gray-900 p-1 rounded">begin (print &quot;a&quot;) (print &quot;b&quot;) (print &quot;c&quot;)</pre>
                         </div>
                       </div>
                     </div>
@@ -265,7 +265,7 @@ const PretzlPage = () => {
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <p className="font-semibold">print</p>
-                          <pre className="bg-gray-900 p-1 rounded">print "hello"</pre>
+                          <pre className="bg-gray-900 p-1 rounded">print &quot;hello&quot;</pre>
                           <pre className="bg-gray-900 p-1 rounded">print (+ 1 2)</pre>
                         </div>
                         <div>
@@ -283,9 +283,9 @@ const PretzlPage = () => {
                         <div>
                           <p className="font-semibold">list</p>
                           <pre className="bg-gray-900 p-1 rounded">list 1 2 3 4 5</pre>
-                          <pre className="bg-gray-900 p-1 rounded">def nums (list)</pre>
-                          <pre className="bg-gray-900 p-1 rounded">def nums [1 2 3]</pre>
-                          <pre className="bg-gray-900 p-1 rounded">def empty []</pre>
+                          <pre className="bg-gray-900 p-1 rounded">set nums (list)</pre>
+                          <pre className="bg-gray-900 p-1 rounded">set nums [1 2 3]</pre>
+                          <pre className="bg-gray-900 p-1 rounded">set empty []</pre>
                         </div>
                         <div>
                           <p className="font-semibold">append</p>
@@ -312,11 +312,11 @@ const PretzlPage = () => {
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <p className="font-semibold">concat</p>
-                          <pre className="bg-gray-900 p-1 rounded">concat "hello" " " "world"</pre>
+                          <pre className="bg-gray-900 p-1 rounded">concat &quot;hello&quot; &quot; &quot; &quot;world&quot;</pre>
                         </div>
                         <div>
                           <p className="font-semibold">type</p>
-                          <pre className="bg-gray-900 p-1 rounded">type "hello"    → "string"</pre>
+                          <pre className="bg-gray-900 p-1 rounded">type &quot;hello&quot;    → &quot;string&quot;</pre>
                         </div>
                       </div>
                     </div>
