@@ -9,7 +9,8 @@ export default function Home() {
   const experimentDescriptions = {
     cells: "Generate music using cellular automata. Watch cellular automata evolve while creating melodies based on cell patterns and positions.",
     pncalc: "A calculator that accepts the operator before the operands. Explore different ways to write mathematical expressions.",
-    pretzl: "A twist on a prefix language - a mix of Python and Lisp. Write and run code with features like functions, loops, lists, and interactive input/output."
+    pretzl: "A twist on a prefix language - a mix of Python and Lisp. Write and run code with features like functions, loops, lists, and interactive input/output.",
+    dialectica: "Dialectic analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis."
   };
 
   return (
@@ -48,7 +49,18 @@ export default function Home() {
                     >
                         <p>
                             <span className="text-blue-400">[03]</span>
-                            <span className="text-white ml-4">Pretzl</span>
+                            <span className="text-white ml-4">Pretzl Programming Language</span>
+                        </p>
+                    </Link>
+                    <Link 
+                        href="/experiments/dialectica" 
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('dialectica')}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[04]</span>
+                            <span className="text-white ml-4">Dialectica</span>
                         </p>
                     </Link>
                 </div>
