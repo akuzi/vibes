@@ -10,7 +10,7 @@ export default function Home() {
     cells: "Generate music using cellular automata. Watch cellular automata evolve while creating melodies based on cell patterns and positions.",
     pncalc: "A calculator that accepts the operator before the operands. Explore different ways to write mathematical expressions.",
     pretzl: "A twist on a prefix language - a mix of Python and Lisp. Write and run code with features like functions, loops, lists, and interactive input/output.",
-    dialectica: "Dialectic analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis."
+    dialectica: "Dialectica analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis."
   };
 
   return (
