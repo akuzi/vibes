@@ -1,28 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Editor from 'react-simple-code-editor';
-import Prism from 'prismjs';
-import 'prismjs/themes/prism-tomorrow.css';
-import 'prismjs/components/prism-lisp';
+import MonacoEditor from '@monaco-editor/react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { runPretzl } from '@/lib/pretzl/interpreter';
-import { PRETZL_SAMPLES } from '@/lib/pretzl/samples';
-
-// Extend Prism's Lisp grammar for Pretzl keywords
-const pretzlKeywords = ['define', 'lambda', 'if', 'print', 'input'];
-Prism.languages.lisp['keyword'] = new RegExp(`(?<=\\()(${pretzlKeywords.join('|')})\\b`);
-
-const LineNumbers = ({ code }: { code: string }) => {
-  const lines = code.split('\n').length;
-  return (
-    <div className="text-right text-gray-500 pr-4 select-none" style={{ flex: '0 0 auto' }}>
-      {Array.from({ length: lines }, (_, i) => (
-        <div key={i}>{i + 1}</div>
-      ))}
-    </div>
-  );
-};
+import { PRETZL_SAMPLES, SampleProgram } from '@/lib/pretzl/samples';
 
 const PretzlPage = () => {
   const [code, setCode] = useState(PRETZL_SAMPLES[0].code);
@@ -31,12 +13,14 @@ const PretzlPage = () => {
   const [consoleInputValue, setConsoleInputValue] = useState('');
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const consoleBuffer = useRef('');
 
   // This will be used to resolve the promise when input is submitted.
   const inputResolver = useRef<((value: string) => void) | null>(null);
 
   const handleRun = async () => {
     setConsoleLines([]);
+    consoleBuffer.current = '';
     
     const inputProvider = (): Promise<string> => {
       setIsAwaitingInput(true);
@@ -46,8 +30,10 @@ const PretzlPage = () => {
     };
 
     try {
-      await runPretzl(code, inputProvider, (line) => {
-        setConsoleLines(prev => [...prev, line]);
+      await runPretzl(code, inputProvider, (output) => {
+        console.log('Output received:', output);
+        // Always add output as a new line for simplicity
+        setConsoleLines(prev => [...prev, output]);
       });
     } catch (e) {
       if (e instanceof Error) {
@@ -61,7 +47,18 @@ const PretzlPage = () => {
   const handleConsoleSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && isAwaitingInput) {
       const value = consoleInputValue;
-      setConsoleLines(prev => [...prev, value]);
+      console.log('Input submitted:', value);
+      setConsoleLines(prev => {
+        const newLines = [...prev];
+        if (newLines.length > 0) {
+          // Append the input value to the last line (the prompt)
+          newLines[newLines.length - 1] = newLines[newLines.length - 1] + value;
+        } else {
+          // Fallback: add as new line if no previous line
+          newLines.push(value);
+        }
+        return newLines;
+      });
       if (inputResolver.current) {
         inputResolver.current(value);
         inputResolver.current = null;
@@ -81,26 +78,22 @@ const PretzlPage = () => {
     }
   }, [isAwaitingInput]);
 
-  const highlight = (code: string) => {
-    return Prism.highlight(code, Prism.languages.lisp, 'lisp');
-  }
-
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white font-mono">
       <header className="bg-gray-800 p-4 flex justify-between items-center shadow-md flex-shrink-0">
-        <h1 className="text-xl font-bold">Pretzl: A twist on prefix languages.</h1>
+        <h1 className="text-xl font-bold">Pretzl</h1>
         <div className="flex items-center">
           <select
             className="bg-gray-700 text-white p-2 rounded mr-4"
             onChange={(e) => {
-              const selectedSample = PRETZL_SAMPLES.find((s: any) => s.name === e.target.value);
+              const selectedSample = PRETZL_SAMPLES.find((s: SampleProgram) => s.name === e.target.value);
               if (selectedSample) {
                 setCode(selectedSample.code);
               }
             }}
           >
             <option value="" disabled>Select a sample...</option>
-            {PRETZL_SAMPLES.map((sample: any) => (
+            {PRETZL_SAMPLES.map((sample: SampleProgram) => (
               <option key={sample.name} value={sample.name}>
                 {sample.name}
               </option>
@@ -119,23 +112,24 @@ const PretzlPage = () => {
           <div className="flex flex-col h-full">
             <h2 className="text-lg bg-gray-700 p-2 flex-shrink-0">Editor</h2>
             <div className="flex flex-grow overflow-auto" style={{ backgroundColor: '#2d2d2d' }}>
-              <div className="flex h-full">
-                <LineNumbers code={code} />
-                <Editor
+              <div className="flex flex-grow h-full">
+                <MonacoEditor
+                  height="100%"
+                  width="100%"
+                  language="scheme"
+                  theme="vs-dark"
                   value={code}
-                  onValueChange={setCode}
-                  highlight={highlight}
-                  padding={10}
-                  style={{
-                    fontFamily: '"Fira code", "Fira Mono", monospace',
+                  onChange={value => setCode(value || '')}
+                  options={{
+                    fontFamily: 'Fira Mono, monospace',
                     fontSize: 14,
-                    lineHeight: '1.5em',
-                    flex: 1,
-                    backgroundImage: 'linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)',
-                    backgroundSize: '2em 1.5em',
-                    backgroundPosition: '10px 0',
-                    outline: 'none',
-                    border: 'none',
+                    lineNumbers: 'on',
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    guides: { indentation: true },
+                    automaticLayout: true,
+                    tabSize: 2,
                   }}
                 />
               </div>
@@ -150,20 +144,37 @@ const PretzlPage = () => {
                 <h2 className="text-lg bg-gray-700 p-2 flex-shrink-0">Console</h2>
                 <div className="flex-grow p-4 overflow-auto" onClick={() => inputRef.current?.focus()}>
                   {consoleLines.map((line, index) => (
-                    <pre key={index}>{line}</pre>
+                    <div key={index} style={{ margin: 0, fontFamily: 'monospace' }}>
+                      {line}
+                      {isAwaitingInput && index === consoleLines.length - 1 && (
+                        <span className="inline-flex items-center">
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            value={consoleInputValue}
+                            onChange={(e) => setConsoleInputValue(e.target.value)}
+                            onKeyDown={handleConsoleSubmit}
+                            className="bg-transparent text-white outline-none border-none"
+                            style={{ fontFamily: 'inherit', fontSize: 'inherit' }}
+                            autoFocus
+                          />
+                        </span>
+                      )}
+                    </div>
                   ))}
-                  {isAwaitingInput && (
-                    <div className="flex items-center">
+                  {isAwaitingInput && consoleLines.length === 0 && (
+                    <span className="inline-flex items-center">
                       <input
                         ref={inputRef}
                         type="text"
                         value={consoleInputValue}
                         onChange={(e) => setConsoleInputValue(e.target.value)}
                         onKeyDown={handleConsoleSubmit}
-                        className="w-full bg-transparent text-white outline-none"
+                        className="bg-transparent text-white outline-none border-none"
+                        style={{ fontFamily: 'inherit', fontSize: 'inherit' }}
                         autoFocus
                       />
-                    </div>
+                    </span>
                   )}
                   <div ref={consoleEndRef} />
                 </div>
@@ -172,33 +183,172 @@ const PretzlPage = () => {
             <PanelResizeHandle className="h-2 bg-gray-700 hover:bg-blue-600 transition-colors" />
             <Panel defaultSize={34}>
               <div className="flex flex-col h-full">
-                <h2 className="text-lg bg-gray-700 p-2 flex-shrink-0">Keyword Examples</h2>
-                <div className="flex-grow p-2 overflow-hidden bg-gray-800 text-sm">
-                  <div className="grid grid-cols-3 gap-2 h-full">
+                <h2 className="text-lg bg-gray-700 p-2 flex-shrink-0">Cheatsheet</h2>
+                <div className="flex-grow p-3 overflow-auto bg-gray-800 text-xs">
+                  <div className="space-y-4">
+                    
+                    {/* Basic Values */}
                     <div>
-                      <p className="font-bold">define</p>
-                      <pre className="bg-gray-900 p-1 rounded mt-1">define x 10</pre>
+                      <h3 className="font-bold text-blue-300 mb-2">Basic Values</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">Numbers</p>
+                          <pre className="bg-gray-900 p-1 rounded">42, -3.14, 0</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Strings</p>
+                          <pre className="bg-gray-900 p-1 rounded">"hello world"</pre>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Arithmetic Operators */}
                     <div>
-                      <p className="font-bold">lambda</p>
-                      <pre className="bg-gray-900 p-1 rounded mt-1">lambda n (* n n)</pre>
+                      <h3 className="font-bold text-green-300 mb-2">Arithmetic</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">+ - * /</p>
+                          <pre className="bg-gray-900 p-1 rounded">+ 1 2    → 3</pre>
+                          <pre className="bg-gray-900 p-1 rounded">* (+ 1 2) 3    → 9</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Comparisons</p>
+                          <pre className="bg-gray-900 p-1 rounded">&lt; &gt; &lt;= &gt;= ==</pre>
+                          <pre className="bg-gray-900 p-1 rounded">(&lt; 5 10)    → 1 (true)</pre>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Variables & Functions */}
                     <div>
-                      <p className="font-bold">if</p>
-                      <pre className="bg-gray-900 p-1 rounded mt-1">if (&gt; x 5) "big" "small"</pre>
+                      <h3 className="font-bold text-yellow-300 mb-2">Variables & Functions</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">set</p>
+                          <pre className="bg-gray-900 p-1 rounded">set x 10</pre>
+                          <pre className="bg-gray-900 p-1 rounded">set pi 3.14159</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">lambda</p>
+                          <pre className="bg-gray-900 p-1 rounded">lambda x (* x x)</pre>
+                          <pre className="bg-gray-900 p-1 rounded">lambda (x y) (+ x y)</pre>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Control Flow */}
                     <div>
-                      <p className="font-bold">list</p>
-                      <pre className="bg-gray-900 p-1 rounded mt-1">list 1 2 3</pre>
+                      <h3 className="font-bold text-purple-300 mb-2">Control Flow</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">if</p>
+                          <pre className="bg-gray-900 p-1 rounded">if (&gt; x 5) "big" "small"</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">while</p>
+                          <pre className="bg-gray-900 p-1 rounded">while (&lt; i 10) (set i (+ i 1))</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">for</p>
+                          <pre className="bg-gray-900 p-1 rounded">for (set i 0) (&lt; i 5) (set i (+ i 1)) (print i)</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">begin</p>
+                          <pre className="bg-gray-900 p-1 rounded">begin (print "a") (print "b") (print "c")</pre>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* I/O */}
                     <div>
-                      <p className="font-bold">print</p>
-                      <pre className="bg-gray-900 p-1 rounded mt-1">print "hello"</pre>
+                      <h3 className="font-bold text-cyan-300 mb-2">Input/Output</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">print</p>
+                          <pre className="bg-gray-900 p-1 rounded">print "hello"</pre>
+                          <pre className="bg-gray-900 p-1 rounded">print (+ 1 2)</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">input</p>
+                          <pre className="bg-gray-900 p-1 rounded">set name (input)</pre>
+                          <pre className="bg-gray-900 p-1 rounded">set age (input)</pre>
+                        </div>
+                      </div>
                     </div>
-                     <div>
-                      <p className="font-bold">input</p>
-                      <pre className="bg-gray-900 p-1 rounded mt-1">input</pre>
+
+                    {/* Lists */}
+                    <div>
+                      <h3 className="font-bold text-orange-300 mb-2">Lists</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">list</p>
+                          <pre className="bg-gray-900 p-1 rounded">list 1 2 3 4 5</pre>
+                          <pre className="bg-gray-900 p-1 rounded">def nums (list)</pre>
+                          <pre className="bg-gray-900 p-1 rounded">def nums [1 2 3]</pre>
+                          <pre className="bg-gray-900 p-1 rounded">def empty []</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">append</p>
+                          <pre className="bg-gray-900 p-1 rounded">append nums 42</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">sort</p>
+                          <pre className="bg-gray-900 p-1 rounded">sort nums</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">length</p>
+                          <pre className="bg-gray-900 p-1 rounded">length nums</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">get</p>
+                          <pre className="bg-gray-900 p-1 rounded">get nums 0</pre>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Strings */}
+                    <div>
+                      <h3 className="font-bold text-pink-300 mb-2">Strings</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">concat</p>
+                          <pre className="bg-gray-900 p-1 rounded">concat "hello" " " "world"</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">type</p>
+                          <pre className="bg-gray-900 p-1 rounded">type "hello"    → "string"</pre>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Function Calls */}
+                    <div>
+                      <h3 className="font-bold text-red-300 mb-2">Function Calls</h3>
+                      <div className="grid grid-cols-1 gap-2">
+                        <div>
+                          <p className="font-semibold">Syntax</p>
+                          <pre className="bg-gray-900 p-1 rounded">(function arg1 arg2 ...)</pre>
+                          <pre className="bg-gray-900 p-1 rounded">(factorial 5)</pre>
+                          <pre className="bg-gray-900 p-1 rounded">(lambda x (* x x) 4)</pre>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Truth Values */}
+                    <div>
+                      <h3 className="font-bold text-gray-300 mb-2">Truth Values</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="font-semibold">True</p>
+                          <pre className="bg-gray-900 p-1 rounded">1, any non-zero number</pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold">False</p>
+                          <pre className="bg-gray-900 p-1 rounded">0</pre>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div>
