@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import Grid from '@/components/cells/Grid';
 import Controls from '@/components/cells/Controls';
 import {
@@ -227,6 +228,14 @@ const CellsPage = () => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      <header className="bg-gray-100 p-4 flex items-center shadow-md flex-shrink-0">
+        <Link href="/" className="text-gray-700 hover:text-black mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+        </Link>
+        <h1 className="text-xl font-bold text-gray-800">Musical Cells</h1>
+      </header>
       <div
         ref={gridContainerRef}
         className="flex-grow w-full flex items-center justify-center overflow-hidden"

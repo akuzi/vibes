@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 
 interface Argument {
   title: string;
@@ -218,10 +219,16 @@ const DialecticaPage = () => {
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white font-mono">
       <header className="bg-gray-800 p-4 flex justify-between items-center shadow-md flex-shrink-0">
+        <Link href="/" className="text-white hover:text-gray-300">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </Link>
         <h1 className="text-xl font-bold">Dialectica</h1>
+        <div className="w-6" />
       </header>
       
-      <div className="flex-grow p-6">
+      <div className="flex-grow p-6 overflow-auto">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Input Section */}
           <div className="bg-gray-800 p-6 rounded-lg">

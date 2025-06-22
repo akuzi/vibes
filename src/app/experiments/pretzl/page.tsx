@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import MonacoEditor from '@monaco-editor/react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { runPretzl } from '@/lib/pretzl/interpreter';
@@ -81,7 +82,14 @@ const PretzlPage = () => {
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white font-mono">
       <header className="bg-gray-800 p-4 flex justify-between items-center shadow-md flex-shrink-0">
-        <h1 className="text-xl font-bold">Pretzl</h1>
+        <div className="flex items-center">
+          <Link href="/" className="text-white hover:text-gray-300 mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <h1 className="text-xl font-bold">Pretzl</h1>
+        </div>
         <div className="flex items-center">
           <select
             className="bg-gray-700 text-white p-2 rounded mr-4"
