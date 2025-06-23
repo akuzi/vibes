@@ -43,7 +43,7 @@ export default function PlanetPop() {
   const [params, setParams] = useState(defaultParams);
   const [starDistance, setStarDistance] = useState(10);
   const [starBrightness, setStarBrightness] = useState(200);
-  const [timeSpeed, setTimeSpeed] = useState(0.3);
+  const [timeSpeed, setTimeSpeed] = useState(0.5);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMouse, setLastMouse] = useState<{x: number, y: number} | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -339,7 +339,7 @@ export default function PlanetPop() {
     const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8, metalness: 0.1 });
     for (let i = 0; i < params.numMoons; i++) {
         const moonSize = Math.random() * 0.01 + 0.005;
-        const moonDistance = PLANET_RADIUS + 0.3 + Math.random() * 0.8;
+        const moonDistance = PLANET_RADIUS + 0.2 + Math.random() * 0.4;
         const moonGeometry = new THREE.SphereGeometry(moonSize, 16, 16);
         const moon = new THREE.Mesh(moonGeometry, moonMaterial);
 
