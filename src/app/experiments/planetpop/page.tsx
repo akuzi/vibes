@@ -79,7 +79,7 @@ export default function PlanetPop() {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
-    renderer.setClearColor(0x000000, 0);
+    renderer.setClearColor(0x000000, 1);
     rendererRef.current = renderer;
     currentMount.appendChild(renderer.domElement);
 
@@ -136,7 +136,7 @@ export default function PlanetPop() {
 
     const starfieldGeometry = new THREE.BufferGeometry();
     starfieldGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    starfieldGeometry.setAttribute('aColor', new THREE.Float32BufferAttribute(starColors, 3));
+    starfieldGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
     starfieldGeometry.setAttribute('size', new THREE.Float32BufferAttribute(starSizes, 1));
     
     // DEBUG: Use PointsMaterial instead of ShaderMaterial to check if stars appear
@@ -352,7 +352,7 @@ export default function PlanetPop() {
 
   // UI for controls
   return (
-    <div className="flex h-screen w-screen flex-col md:flex-row bg-gray-900 text-white">
+    <div className="flex h-screen w-screen flex-col md:flex-row bg-black text-white">
       <div
         className="flex-grow relative"
         onPointerDown={handlePointerDown}
