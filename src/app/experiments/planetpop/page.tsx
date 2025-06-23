@@ -369,7 +369,6 @@ export default function PlanetPop() {
       </div>
       <div className="w-full md:w-96 bg-gray-800 p-6 flex flex-col gap-6 shadow-lg border-t md:border-t-0 md:border-l border-gray-700">
         <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold tracking-tighter">PlanetPop</h1>
             <button
                 onClick={handleRandomize}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
