@@ -23,15 +23,6 @@ const defaultParams = {
   roughness: 0.5,
 };
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace('#', '');
-  const bigint = parseInt(h, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 function fbm(x: number, y: number, z: number, noise3D: (x:number, y:number, z:number)=>number, octaves: number, persistence: number = 0.5, lacunarity: number = 2.0) {
     let total = 0;
     let frequency = 1;
@@ -51,7 +42,6 @@ export default function PlanetPop() {
   const [params, setParams] = useState(defaultParams);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMouse, setLastMouse] = useState<{x: number, y: number} | null>(null);
-
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
