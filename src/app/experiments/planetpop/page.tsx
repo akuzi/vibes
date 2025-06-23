@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import * as THREE from "three";
 import { createNoise3D } from "simplex-noise";
 import { STAR_DATA } from "@/lib/stars";
@@ -43,6 +43,7 @@ export default function PlanetPop() {
   const [params, setParams] = useState(defaultParams);
   const [starDistance, setStarDistance] = useState(10);
   const [starBrightness, setStarBrightness] = useState(200);
+  const [timeSpeed, setTimeSpeed] = useState(0.3);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMouse, setLastMouse] = useState<{x: number, y: number} | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -56,6 +57,54 @@ export default function PlanetPop() {
   const starMeshRef = useRef<THREE.Mesh | null>(null);
   const starLightRef = useRef<THREE.PointLight | null>(null);
   const skyGroupRef = useRef<THREE.Group | null>(null);
+  const timeRef = useRef(0);
+  const noiseRef = useRef(createNoise3D());
+
+  const updatePlanetColors = useCallback(() => {
+    if (!planetMeshRef.current) return;
+
+    const geometry = planetMeshRef.current.geometry as THREE.SphereGeometry;
+    const pos = geometry.attributes.position;
+    const colors: number[] = [];
+    const time = timeRef.current;
+    const noise3D = noiseRef.current;
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const r = Math.sqrt(x * x + y * y + z * z);
+      const nx = x / r, ny = y / r, nz = z / r;
+      const warp_strength = params.gasTurbulence * 1.5;
+      const qx = nx + warp_strength * fbm(nx, ny, nz, noise3D, 3);
+      const qy = ny + warp_strength * fbm(nx + 5.2, ny + 1.3, nz, noise3D, 3);
+      const qz = nz + warp_strength * fbm(nx, ny + 2.8, nz + 4.1, noise3D, 3);
+      const base_noise = fbm(qx * 0.7, qy * 2.0, qz * 0.7 + time, noise3D, 8);
+      const detail_noise = fbm(qx * 5.0, qy * 5.0, qz * 5.0 + time, noise3D, 6);
+      const fine_detail_noise = fbm(qx * 12.0, qy * 12.0, qz * 12.0 + time, noise3D, 3);
+      let pattern = (base_noise * 0.65 + detail_noise * 0.25 + fine_detail_noise * 0.1 + 1.0) / 2.0;
+      pattern = Math.max(0, Math.min(1, pattern));
+      const palette = params.gasColors;
+      const n = palette.length;
+      const scaled = pattern * (n - 1);
+      const idx = Math.floor(scaled);
+      const t = scaled - idx;
+      const colorA = new THREE.Color(palette[idx]);
+      const colorB = new THREE.Color(palette[Math.min(idx + 1, n - 1)]);
+      const r_c = colorA.r * (1 - t) + colorB.r * t;
+      const g_c = colorA.g * (1 - t) + colorB.g * t;
+      const b_c = colorA.b * (1 - t) + colorB.b * t;
+      colors.push(r_c, g_c, b_c);
+    }
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.attributes.color.needsUpdate = true;
+  }, [params]);
+
+  const timeSpeedRef = useRef(timeSpeed);
+  timeSpeedRef.current = timeSpeed;
+
+  const updatePlanetColorsRef = useRef(updatePlanetColors);
+  updatePlanetColorsRef.current = updatePlanetColors;
 
   // One-time scene setup
   useEffect(() => {
@@ -155,6 +204,8 @@ export default function PlanetPop() {
     let frameId: number;
     let planetOrbitAngle = 0;
     const animate = () => {
+      timeRef.current += 0.001 * timeSpeedRef.current;
+      
       // --- PLANET ORBIT ---
       planetOrbitAngle += 0.001;
       if (planetOrbitGroupRef.current) {
@@ -169,10 +220,11 @@ export default function PlanetPop() {
 
       if (planetMeshRef.current) {
         planetMeshRef.current.rotation.y += 0.0007;
+        updatePlanetColorsRef.current();
       }
       if (moonsGroupRef.current) {
         moonsGroupRef.current.children.forEach((orbitPlane, i) => {
-            const speed = 0.001 + (i % 3) * 0.0005;
+            const speed = (0.001 + (i % 3) * 0.0005) * (timeSpeedRef.current * 5);
             orbitPlane.rotation.y += speed;
         });
       }
@@ -185,11 +237,12 @@ export default function PlanetPop() {
     animate();
 
     const handleResize = () => {
-        if (!rendererRef.current || !cameraRef.current || !mountRef.current) return;
+        if (!rendererRef.current || !cameraRef.current || !mountRef.current || !starLightRef.current) return;
         const { clientWidth, clientHeight } = mountRef.current;
         rendererRef.current.setSize(clientWidth, clientHeight);
         cameraRef.current.aspect = clientWidth / clientHeight;
         cameraRef.current.updateProjectionMatrix();
+        starLightRef.current.intensity = starBrightness;
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
@@ -215,6 +268,9 @@ export default function PlanetPop() {
   // Update planet mesh when params change
   useEffect(() => {
     if (!planetOrbitGroupRef.current || !moonsGroupRef.current) return;
+    
+    noiseRef.current = createNoise3D();
+    const noise3D = noiseRef.current;
 
     // Remove old planet
     if (planetMeshRef.current) {
@@ -225,7 +281,6 @@ export default function PlanetPop() {
 
     const PLANET_RADIUS = 0.7;
     const geometry = new THREE.SphereGeometry(PLANET_RADIUS, 256, 256);
-    const noise3D = createNoise3D();
     const pos = geometry.attributes.position;
     const colors: number[] = [];
 
@@ -470,6 +525,19 @@ export default function PlanetPop() {
             step="0.5"
             value={starBrightness}
             onChange={(e) => setStarBrightness(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
+        <div>
+          <label htmlFor="timeSpeed" className="block mb-1">Time Speed: {timeSpeed}</label>
+          <input
+            type="range"
+            id="timeSpeed"
+            min="0"
+            max="1"
+            step="0.01"
+            value={timeSpeed}
+            onChange={(e) => setTimeSpeed(Number(e.target.value))}
             className="w-full"
           />
         </div>
