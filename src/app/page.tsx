@@ -11,7 +11,7 @@ export default function Home() {
     pncalc: "A calculator that accepts the operator before the operands. Explore different ways to write mathematical expressions.",
     pretzl: "A twist on a prefix language - a mix of Python and Lisp. Write and run code with features like functions, loops, lists, and interactive input/output.",
     dialectica: "Dialectica analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis.",
-    planetpop: "Create and customize a 3D gas giant. Visualize gas giants, ocean worlds, or terrestrial planets, and tweak their appearance in real time."
+    gasgiant: "Create and customize a 3D gas giant. Visualize gas giants, ocean worlds, or terrestrial planets, and tweak their appearance in real time."
   };
 
   return (
@@ -65,9 +65,9 @@ export default function Home() {
                         </p>
                     </Link>
                     <Link 
-                        href="/experiments/planetpop" 
+                        href="/experiments/gasgiant" 
                         className="hover:bg-green-900 p-2 rounded"
-                        onMouseEnter={() => setHoveredExperiment('planetpop')}
+                        onMouseEnter={() => setHoveredExperiment('gasgiant')}
                         onMouseLeave={() => setHoveredExperiment(null)}
                     >
                         <p>
