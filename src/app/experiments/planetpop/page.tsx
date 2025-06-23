@@ -21,7 +21,7 @@ const defaultParams = {
   gasColorPreset: "Crimson Giant",
   gasTurbulence: 0.5,
   roughness: 0.5,
-  numMoons: 5,
+  numMoons: 20,
 };
 
 function fbm(x: number, y: number, z: number, noise3D: (x:number, y:number, z:number)=>number, octaves: number, persistence: number = 0.5, lacunarity: number = 2.0) {
@@ -279,13 +279,13 @@ export default function PlanetPop() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <h1 className="text-xl font-bold">Planet Pop</h1>
+        <h1 className="text-xl font-bold">Gas Giant</h1>
       </header>
       <div className="flex flex-col md:flex-row flex-grow">
         <div className="flex-1 relative">
           <div
             ref={mountRef}
-            className="w-full h-full cursor-grab"
+            className="w-full h-full cursor-grab bg-black"
             style={{ touchAction: "none" }}
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}

@@ -11,7 +11,7 @@ export default function Home() {
     pncalc: "A calculator that accepts the operator before the operands. Explore different ways to write mathematical expressions.",
     pretzl: "A twist on a prefix language - a mix of Python and Lisp. Write and run code with features like functions, loops, lists, and interactive input/output.",
     dialectica: "Dialectica analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis.",
-    planetpop: "Create and customize a 3D planet. Visualize gas giants, ocean worlds, or terrestrial planets, and tweak their appearance in real time."
+    planetpop: "Create and customize a 3D gas giant. Visualize gas giants, ocean worlds, or terrestrial planets, and tweak their appearance in real time."
   };
 
   return (
@@ -72,7 +72,7 @@ export default function Home() {
                     >
                         <p>
                             <span className="text-blue-400">[05]</span>
-                            <span className="text-white ml-4">Planet Pop</span>
+                            <span className="text-white ml-4">Gas Giant</span>
                         </p>
                     </Link>
                 </div>
