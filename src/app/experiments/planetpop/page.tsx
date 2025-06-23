@@ -46,10 +46,13 @@ export default function PlanetPop() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const sceneGroupRef = useRef<THREE.Group | null>(null);
+  const cameraGroupRef = useRef<THREE.Group | null>(null);
   const planetMeshRef = useRef<THREE.Mesh | null>(null);
   const moonsGroupRef = useRef<THREE.Group | null>(null);
   const starsRef = useRef<THREE.Points | null>(null);
+  const planetOrbitGroupRef = useRef<THREE.Group | null>(null);
+  const starMeshRef = useRef<THREE.Mesh | null>(null);
+  const skyGroupRef = useRef<THREE.Group | null>(null);
 
   // One-time scene setup
   useEffect(() => {
@@ -66,25 +69,45 @@ export default function PlanetPop() {
     camera.position.z = 3;
     cameraRef.current = camera;
 
+    const cameraGroup = new THREE.Group();
+    cameraGroupRef.current = cameraGroup;
+    scene.add(cameraGroup);
+    cameraGroup.add(camera);
+
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setClearColor(0x000000, 0);
     rendererRef.current = renderer;
     currentMount.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
-    directionalLight.position.set(5, 2, 2);
-    scene.add(directionalLight);
 
-    const sceneGroup = new THREE.Group();
-    sceneGroupRef.current = sceneGroup;
-    scene.add(sceneGroup);
+    const skyGroup = new THREE.Group();
+    skyGroupRef.current = skyGroup;
+    scene.add(skyGroup);
+
+    // --- STAR (SUN) ---
+    const SUN_RADIUS = 0.25;
+    const sunGeometry = new THREE.SphereGeometry(SUN_RADIUS, 64, 64);
+    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xfff7b2 });
+    const starMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+    starMesh.position.set(20, 0, 0);
+    skyGroup.add(starMesh);
+    starMeshRef.current = starMesh;
+
+    // --- STAR LIGHT ---
+    const starLight = new THREE.PointLight(0xfff7b2, 20, 100);
+    starMesh.add(starLight);
+
+    // --- PLANET ORBIT GROUP ---
+    const planetOrbitGroup = new THREE.Group();
+    planetOrbitGroupRef.current = planetOrbitGroup;
+    scene.add(planetOrbitGroup);
 
     const moonsGroup = new THREE.Group();
     moonsGroupRef.current = moonsGroup;
-    sceneGroup.add(moonsGroup);
+    planetOrbitGroup.add(moonsGroup);
 
     // Create starfield from local data
     const starVertices = [];
@@ -107,25 +130,39 @@ export default function PlanetPop() {
         starSizes.push(size);
     }
 
-    const starGeometry = new THREE.BufferGeometry();
-    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    starGeometry.setAttribute('aColor', new THREE.Float32BufferAttribute(starColors, 3));
-    starGeometry.setAttribute('size', new THREE.Float32BufferAttribute(starSizes, 1));
+    const starfieldGeometry = new THREE.BufferGeometry();
+    starfieldGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+    starfieldGeometry.setAttribute('aColor', new THREE.Float32BufferAttribute(starColors, 3));
+    starfieldGeometry.setAttribute('size', new THREE.Float32BufferAttribute(starSizes, 1));
     
     // DEBUG: Use PointsMaterial instead of ShaderMaterial to check if stars appear
     // const starMaterial = new THREE.ShaderMaterial({ ... });
-    const starMaterial = new THREE.PointsMaterial({
+    const starfieldMaterial = new THREE.PointsMaterial({
         color: 0xffffff,
         size: 10,
         sizeAttenuation: true,
+        vertexColors: true
     });
     
-    const stars = new THREE.Points(starGeometry, starMaterial);
-    sceneGroup.add(stars);
+    const stars = new THREE.Points(starfieldGeometry, starfieldMaterial);
+    skyGroup.add(stars);
     starsRef.current = stars;
 
     let frameId: number;
+    let planetOrbitAngle = 0;
     const animate = () => {
+      // --- PLANET ORBIT ---
+      planetOrbitAngle += 0.001;
+      if (planetOrbitGroupRef.current) {
+        const ORBIT_RADIUS = 2;
+        planetOrbitGroupRef.current.position.x = Math.cos(planetOrbitAngle) * ORBIT_RADIUS;
+        planetOrbitGroupRef.current.position.z = Math.sin(planetOrbitAngle) * ORBIT_RADIUS;
+      }
+      
+      if (cameraGroupRef.current && planetOrbitGroupRef.current) {
+        cameraGroupRef.current.position.copy(planetOrbitGroupRef.current.position);
+      }
+
       if (planetMeshRef.current) {
         planetMeshRef.current.rotation.y += 0.0007;
       }
@@ -164,11 +201,11 @@ export default function PlanetPop() {
 
   // Update planet mesh when params change
   useEffect(() => {
-    if (!sceneGroupRef.current || !moonsGroupRef.current) return;
+    if (!planetOrbitGroupRef.current || !moonsGroupRef.current) return;
 
     // Remove old planet
     if (planetMeshRef.current) {
-      sceneGroupRef.current.remove(planetMeshRef.current);
+      planetOrbitGroupRef.current.remove(planetMeshRef.current);
       planetMeshRef.current.geometry.dispose();
       (planetMeshRef.current.material as THREE.Material).dispose();
     }
@@ -218,7 +255,7 @@ export default function PlanetPop() {
     });
     const newPlanetMesh = new THREE.Mesh(geometry, material);
     planetMeshRef.current = newPlanetMesh;
-    sceneGroupRef.current.add(newPlanetMesh);
+    planetOrbitGroupRef.current.add(newPlanetMesh);
 
     // --- MOON CREATION ---
     // Remove old moons
@@ -261,12 +298,13 @@ export default function PlanetPop() {
     setLastMouse(null);
   };
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || !lastMouse || !sceneGroupRef.current) return;
+    if (!isDragging || !lastMouse || !cameraGroupRef.current) return;
     const dx = e.clientX - lastMouse.x;
     const dy = e.clientY - lastMouse.y;
-    // Rotate the entire scene group
-    sceneGroupRef.current.rotation.y += dx * 0.01;
-    sceneGroupRef.current.rotation.x += dy * 0.01;
+    // Rotate the camera group
+    cameraGroupRef.current.rotation.y += dx * 0.01;
+    cameraGroupRef.current.rotation.x += dy * 0.01;
+
     setLastMouse({ x: e.clientX, y: e.clientY });
   };
 
