@@ -17,7 +17,9 @@
     "react-dom": "^19.0.0",
     "react-resizable-panels": "^3.0.3",
     "react-simple-code-editor": "^0.14.1",
-    "soundfont-player": "^0.12.0"
+    "simplex-noise": "^4.0.3",
+    "soundfont-player": "^0.12.0",
+    "three": "^0.177.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -25,6 +27,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.177.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "tailwindcss": "^4",

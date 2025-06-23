@@ -10,7 +10,8 @@ export default function Home() {
     cells: "Generate music using cellular automata. Watch cellular automata evolve while creating melodies based on cell patterns and positions.",
     pncalc: "A calculator that accepts the operator before the operands. Explore different ways to write mathematical expressions.",
     pretzl: "A twist on a prefix language - a mix of Python and Lisp. Write and run code with features like functions, loops, lists, and interactive input/output.",
-    dialectica: "Dialectica analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis."
+    dialectica: "Dialectica analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis.",
+    planetpop: "Create and customize a 3D planet. Visualize gas giants, ocean worlds, or terrestrial planets, and tweak their appearance in real time."
   };
 
   return (
@@ -61,6 +62,17 @@ export default function Home() {
                         <p>
                             <span className="text-blue-400">[04]</span>
                             <span className="text-white ml-4">Dialectica</span>
+                        </p>
+                    </Link>
+                    <Link 
+                        href="/experiments/planetpop" 
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('planetpop')}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[05]</span>
+                            <span className="text-white ml-4">Planet Pop</span>
                         </p>
                     </Link>
                 </div>

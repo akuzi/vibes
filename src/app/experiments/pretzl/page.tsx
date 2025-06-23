@@ -2,10 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import MonacoEditor from '@monaco-editor/react';
+import dynamic from 'next/dynamic';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { runPretzl } from '@/lib/pretzl/interpreter';
 import { PRETZL_SAMPLES, SampleProgram } from '@/lib/pretzl/samples';
+
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 const PretzlPage = () => {
   const [code, setCode] = useState(PRETZL_SAMPLES[0].code);
@@ -34,7 +36,7 @@ const PretzlPage = () => {
       await runPretzl(code, inputProvider, (output) => {
         console.log('Output received:', output);
         // Always add output as a new line for simplicity
-        setConsoleLines(prev => [...prev, output]);
+          setConsoleLines(prev => [...prev, output]);
       });
     } catch (e) {
       if (e instanceof Error) {
@@ -88,7 +90,7 @@ const PretzlPage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
-          <h1 className="text-xl font-bold">Pretzl</h1>
+        <h1 className="text-xl font-bold">Pretzl</h1>
         </div>
         <div className="flex items-center">
           <select
@@ -358,8 +360,8 @@ const PretzlPage = () => {
                         <div>
                           <p className="font-semibold">True</p>
                           <pre className="bg-gray-900 p-1 rounded">1, any non-zero number</pre>
-                        </div>
-                        <div>
+                    </div>
+                     <div>
                           <p className="font-semibold">False</p>
                           <pre className="bg-gray-900 p-1 rounded">0</pre>
                         </div>
