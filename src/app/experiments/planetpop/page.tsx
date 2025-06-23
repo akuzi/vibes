@@ -21,6 +21,7 @@ const defaultParams = {
   gasColorPreset: "Crimson Giant",
   gasTurbulence: 0.5,
   roughness: 0.5,
+  numMoons: 5,
 };
 
 function fbm(x: number, y: number, z: number, noise3D: (x:number, y:number, z:number)=>number, octaves: number, persistence: number = 0.5, lacunarity: number = 2.0) {
@@ -47,6 +48,7 @@ export default function PlanetPop() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const sceneGroupRef = useRef<THREE.Group | null>(null);
   const planetMeshRef = useRef<THREE.Mesh | null>(null);
+  const moonsGroupRef = useRef<THREE.Group | null>(null);
   const starsRef = useRef<THREE.Points | null>(null);
 
   // One-time scene setup
@@ -79,6 +81,10 @@ export default function PlanetPop() {
     const sceneGroup = new THREE.Group();
     sceneGroupRef.current = sceneGroup;
     scene.add(sceneGroup);
+
+    const moonsGroup = new THREE.Group();
+    moonsGroupRef.current = moonsGroup;
+    sceneGroup.add(moonsGroup);
 
     // Create starfield from local data
     const starVertices = [];
@@ -123,6 +129,12 @@ export default function PlanetPop() {
       if (planetMeshRef.current) {
         planetMeshRef.current.rotation.y += 0.0007;
       }
+      if (moonsGroupRef.current) {
+        moonsGroupRef.current.children.forEach((orbitPlane, i) => {
+            const speed = 0.001 + (i % 3) * 0.0005;
+            orbitPlane.rotation.y += speed;
+        });
+      }
       if (starsRef.current) {
         starsRef.current.rotation.y += 0.0002;
       }
@@ -131,16 +143,28 @@ export default function PlanetPop() {
     };
     animate();
 
+    const handleResize = () => {
+        if (!rendererRef.current || !cameraRef.current || !mountRef.current) return;
+        const { clientWidth, clientHeight } = mountRef.current;
+        rendererRef.current.setSize(clientWidth, clientHeight);
+        cameraRef.current.aspect = clientWidth / clientHeight;
+        cameraRef.current.updateProjectionMatrix();
+    };
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(currentMount);
+
     return () => {
       cancelAnimationFrame(frameId);
       currentMount.removeChild(renderer.domElement);
       renderer.dispose();
+      resizeObserver.disconnect();
     };
   }, []);
 
   // Update planet mesh when params change
   useEffect(() => {
-    if (!sceneGroupRef.current) return;
+    if (!sceneGroupRef.current || !moonsGroupRef.current) return;
 
     // Remove old planet
     if (planetMeshRef.current) {
@@ -196,6 +220,35 @@ export default function PlanetPop() {
     planetMeshRef.current = newPlanetMesh;
     sceneGroupRef.current.add(newPlanetMesh);
 
+    // --- MOON CREATION ---
+    // Remove old moons
+    while (moonsGroupRef.current.children.length > 0) {
+        const moonOrbit = moonsGroupRef.current.children[0] as THREE.Group;
+        const moon = moonOrbit.children[0] as THREE.Mesh;
+        moon.geometry.dispose();
+        (moon.material as THREE.Material).dispose();
+        moonsGroupRef.current.remove(moonOrbit);
+    }
+    
+    // Create new moons
+    const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8, metalness: 0.1 });
+    for (let i = 0; i < params.numMoons; i++) {
+        const moonSize = Math.random() * 0.01 + 0.005;
+        const moonDistance = PLANET_RADIUS + 0.3 + Math.random() * 0.8;
+        const moonGeometry = new THREE.SphereGeometry(moonSize, 16, 16);
+        const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+
+        const orbitPlane = new THREE.Group();
+        moon.position.x = moonDistance;
+        orbitPlane.add(moon);
+        
+        orbitPlane.rotation.x = 0;
+        orbitPlane.rotation.y = Math.random() * Math.PI * 2;
+        orbitPlane.rotation.z = 0;
+        
+        moonsGroupRef.current.add(orbitPlane);
+    }
+
   }, [params]);
 
   // Mouse drag to rotate
@@ -229,10 +282,10 @@ export default function PlanetPop() {
         <h1 className="text-xl font-bold">Planet Pop</h1>
       </header>
       <div className="flex flex-col md:flex-row flex-grow">
-        <div className="flex-1 flex items-center justify-center relative">
+        <div className="flex-1 relative">
           <div
             ref={mountRef}
-            className="w-[min(90vw,600px)] h-[min(90vw,600px)] bg-black rounded-lg shadow-lg cursor-grab"
+            className="w-full h-full cursor-grab"
             style={{ touchAction: "none" }}
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
@@ -320,8 +373,20 @@ export default function PlanetPop() {
                 step={0.01}
                 value={params.roughness}
                 onChange={e => setParams(p => ({ ...p, roughness: parseFloat(e.target.value) }))}
+                className="w-full"
               />
               <span className="text-xs">{params.roughness}</span>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold">Number of Moons: {params.numMoons}</span>
+              <input
+                type="range"
+                min="0"
+                max="50"
+                value={params.numMoons}
+                onChange={e => setParams(p => ({ ...p, numMoons: parseInt(e.target.value) }))}
+                className="w-full"
+              />
             </label>
           </div>
         </div>
