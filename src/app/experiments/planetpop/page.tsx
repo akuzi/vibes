@@ -41,6 +41,8 @@ function fbm(x: number, y: number, z: number, noise3D: (x:number, y:number, z:nu
 export default function PlanetPop() {
   const mountRef = useRef<HTMLDivElement>(null);
   const [params, setParams] = useState(defaultParams);
+  const [starDistance, setStarDistance] = useState(10);
+  const [starBrightness, setStarBrightness] = useState(200);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMouse, setLastMouse] = useState<{x: number, y: number} | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -52,6 +54,7 @@ export default function PlanetPop() {
   const starsRef = useRef<THREE.Points | null>(null);
   const planetOrbitGroupRef = useRef<THREE.Group | null>(null);
   const starMeshRef = useRef<THREE.Mesh | null>(null);
+  const starLightRef = useRef<THREE.PointLight | null>(null);
   const skyGroupRef = useRef<THREE.Group | null>(null);
 
   // One-time scene setup
@@ -92,13 +95,14 @@ export default function PlanetPop() {
     const sunGeometry = new THREE.SphereGeometry(SUN_RADIUS, 64, 64);
     const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xfff7b2 });
     const starMesh = new THREE.Mesh(sunGeometry, sunMaterial);
-    starMesh.position.set(20, 0, 0);
+    starMesh.position.set(starDistance, 0, 10);
     skyGroup.add(starMesh);
     starMeshRef.current = starMesh;
 
     // --- STAR LIGHT ---
-    const starLight = new THREE.PointLight(0xfff7b2, 20, 100);
+    const starLight = new THREE.PointLight(0xfff7b2, starBrightness, 100);
     starMesh.add(starLight);
+    starLightRef.current = starLight;
 
     // --- PLANET ORBIT GROUP ---
     const planetOrbitGroup = new THREE.Group();
@@ -199,6 +203,15 @@ export default function PlanetPop() {
     };
   }, []);
 
+  useEffect(() => {
+    if (starMeshRef.current) {
+      starMeshRef.current.position.set(starDistance, 0, 10);
+    }
+    if (starLightRef.current) {
+      starLightRef.current.intensity = starBrightness;
+    }
+  }, [starDistance, starBrightness]);
+
   // Update planet mesh when params change
   useEffect(() => {
     if (!planetOrbitGroupRef.current || !moonsGroupRef.current) return;
@@ -253,9 +266,9 @@ export default function PlanetPop() {
       metalness: 0.1,
       vertexColors: true,
     });
-    const newPlanetMesh = new THREE.Mesh(geometry, material);
-    planetMeshRef.current = newPlanetMesh;
-    planetOrbitGroupRef.current.add(newPlanetMesh);
+    const planet = new THREE.Mesh(geometry, material);
+    planetMeshRef.current = planet;
+    planetOrbitGroupRef.current.add(planet);
 
     // --- MOON CREATION ---
     // Remove old moons
@@ -288,6 +301,35 @@ export default function PlanetPop() {
 
   }, [params]);
 
+  const handleRandomize = () => {
+    const randomPreset = GAS_COLOR_PRESETS[Math.floor(Math.random() * (GAS_COLOR_PRESETS.length -1))];
+    setParams({
+      gasColorPreset: randomPreset.name,
+      gasColors: randomPreset.colors,
+      gasTurbulence: Math.random() * 2,
+      roughness: Math.random(),
+      numMoons: Math.floor(Math.random() * 51),
+    });
+  };
+
+  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const presetName = e.target.value;
+    const preset = GAS_COLOR_PRESETS.find(p => p.name === presetName);
+    if (preset) {
+      setParams(p => ({
+        ...p,
+        gasColorPreset: preset.name,
+        gasColors: preset.colors,
+      }));
+    }
+  };
+
+  const handleColorChange = (index: number, color: string) => {
+    const newColors = [...params.gasColors];
+    newColors[index] = color;
+    setParams(p => ({ ...p, gasColors: newColors, gasColorPreset: 'Custom' }));
+  };
+
   // Mouse drag to rotate
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -310,123 +352,127 @@ export default function PlanetPop() {
 
   // UI for controls
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white font-mono">
-      <header className="bg-gray-800 p-4 flex items-center shadow-md flex-shrink-0">
-        <Link href="/" className="text-white hover:text-gray-300 mr-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-        <h1 className="text-xl font-bold">Gas Giant</h1>
-      </header>
-      <div className="flex flex-col md:flex-row flex-grow">
-        <div className="flex-1 relative">
-          <div
-            ref={mountRef}
-            className="w-full h-full cursor-grab bg-black"
-            style={{ touchAction: "none" }}
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerMove={handlePointerMove}
-            onPointerLeave={handlePointerUp}
+    <div className="flex h-screen w-screen flex-col md:flex-row bg-gray-900 text-white">
+      <div
+        className="flex-grow relative"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerUp}
+      >
+        <div ref={mountRef} className="w-full h-full" />
+        <div className="absolute top-0 left-0 p-4">
+          <Link href="/" className="text-white hover:text-gray-300">
+            &larr; Back
+          </Link>
+        </div>
+      </div>
+      <div className="w-full md:w-96 bg-gray-800 p-6 flex flex-col gap-6 shadow-lg border-t md:border-t-0 md:border-l border-gray-700">
+        <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold tracking-tighter">PlanetPop</h1>
+            <button
+                onClick={handleRandomize}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
+            >
+                Randomize
+            </button>
+        </div>
+
+        <div>
+          <label htmlFor="gasColorPreset" className="block mb-2 text-sm font-medium">Gas Color Preset</label>
+          <select
+            id="gasColorPreset"
+            value={params.gasColorPreset}
+            onChange={handlePresetChange}
+            className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md"
+          >
+            {GAS_COLOR_PRESETS.map(preset => (
+              <option key={preset.name} value={preset.name}>{preset.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {params.gasColorPreset === 'Custom' && (
+          <div className="grid grid-cols-2 gap-4">
+            {params.gasColors.map((color, index) => (
+              <div key={index}>
+                <label htmlFor={`color-${index}`} className="block mb-1 text-sm">Color {index + 1}</label>
+                <input
+                  type="color"
+                  id={`color-${index}`}
+                  value={color}
+                  onChange={(e) => handleColorChange(index, e.target.value)}
+                  className="w-full h-10 p-1 bg-gray-700 border border-gray-600 rounded-md"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="gasTurbulence" className="block mb-1">Gas Turbulence: {params.gasTurbulence}</label>
+          <input
+            type="range"
+            id="gasTurbulence"
+            min="0"
+            max="1"
+            step="0.01"
+            value={params.gasTurbulence}
+            onChange={(e) => setParams(p => ({ ...p, gasTurbulence: Number(e.target.value) }))}
+            className="w-full"
           />
         </div>
-        <div className="w-full md:w-96 bg-gray-800 p-6 flex flex-col gap-6 shadow-lg border-t md:border-t-0 md:border-l border-gray-700">
-          <div className="flex flex-col gap-4">
-            <label className="flex flex-col gap-1">
-              <span className="font-semibold">Gas Color Scheme</span>
-              <select
-                className="bg-gray-700 p-2 rounded"
-                value={params.gasColorPreset}
-                onChange={e => {
-                  const preset = GAS_COLOR_PRESETS.find(p => p.name === e.target.value);
-                  if (preset) {
-                    setParams(p => ({
-                      ...p,
-                      gasColorPreset: preset.name,
-                      gasColors: preset.colors,
-                    }));
-                  }
-                }}
-              >
-                {GAS_COLOR_PRESETS.map(preset => (
-                  <option key={preset.name} value={preset.name}>{preset.name}</option>
-                ))}
-              </select>
-            </label>
-            {params.gasColorPreset === "Custom" && (
-              <>
-                <span className="font-semibold">Custom Gas Colors</span>
-                {params.gasColors.map((color, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-1">
-                    <input
-                      type="color"
-                      value={color}
-                      onChange={e => {
-                        const newColors = [...params.gasColors];
-                        newColors[i] = e.target.value;
-                        setParams(p => ({ ...p, gasColors: newColors }));
-                      }}
-                      className="w-12 h-8 p-0 border-none bg-transparent"
-                    />
-                    {params.gasColors.length > 2 && (
-                      <button
-                        className="text-red-400 text-xs px-2 py-1 border border-red-400 rounded"
-                        onClick={() => {
-                          const newColors = params.gasColors.filter((_, idx) => idx !== i);
-                          setParams(p => ({ ...p, gasColors: newColors }));
-                        }}
-                      >Remove</button>
-                    )}
-                  </div>
-                ))}
-                {params.gasColors.length < 6 && (
-                  <button
-                    className="text-green-400 text-xs px-2 py-1 border border-green-400 rounded mt-1"
-                    onClick={() => {
-                      setParams(p => ({ ...p, gasColors: [...p.gasColors, "#ffffff"] }));
-                    }}
-                  >Add Color</button>
-                )}
-              </>
-            )}
-            <label className="flex flex-col gap-1">
-              <span className="font-semibold">Turbulence</span>
-              <input
+
+        <div>
+            <label htmlFor="roughness" className="block mb-1">Roughness: {params.roughness}</label>
+            <input
                 type="range"
-                min={0}
-                max={2}
-                step={0.01}
-                value={params.gasTurbulence}
-                onChange={e => setParams(p => ({ ...p, gasTurbulence: parseFloat(e.target.value) }))}
-              />
-              <span className="text-xs">{params.gasTurbulence}</span>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="font-semibold">Roughness</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
+                id="roughness"
+                min="0"
+                max="1"
+                step="0.01"
                 value={params.roughness}
-                onChange={e => setParams(p => ({ ...p, roughness: parseFloat(e.target.value) }))}
+                onChange={(e) => setParams(p => ({ ...p, roughness: Number(e.target.value) }))}
                 className="w-full"
-              />
-              <span className="text-xs">{params.roughness}</span>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="font-semibold">Number of Moons: {params.numMoons}</span>
-              <input
+            />
+        </div>
+        <div>
+            <label htmlFor="numMoons" className="block mb-1">Moons: {params.numMoons}</label>
+            <input
                 type="range"
+                id="numMoons"
                 min="0"
                 max="50"
+                step="1"
                 value={params.numMoons}
-                onChange={e => setParams(p => ({ ...p, numMoons: parseInt(e.target.value) }))}
+                onChange={(e) => setParams(p => ({ ...p, numMoons: Number(e.target.value) }))}
                 className="w-full"
-              />
-            </label>
-          </div>
+            />
+        </div>
+        <div>
+          <label htmlFor="starDistance" className="block mb-1">Star Distance: {starDistance}</label>
+          <input
+            type="range"
+            id="starDistance"
+            min="0"
+            max="20"
+            value={starDistance}
+            onChange={(e) => setStarDistance(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
+        <div>
+          <label htmlFor="starBrightness" className="block mb-1">Star Brightness: {starBrightness}</label>
+          <input
+            type="range"
+            id="starBrightness"
+            min="0"
+            max="400"
+            step="0.5"
+            value={starBrightness}
+            onChange={(e) => setStarBrightness(Number(e.target.value))}
+            className="w-full"
+          />
         </div>
       </div>
     </div>
