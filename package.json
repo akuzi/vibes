@@ -12,6 +12,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@types/prismjs": "^1.26.5",
     "next": "15.3.4",
+    "openai": "^5.7.0",
     "prismjs": "^1.30.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
