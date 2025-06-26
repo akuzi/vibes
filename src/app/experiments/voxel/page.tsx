@@ -1,18 +1,11 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import Link from "next/link";
-import { 
-  VoxelData, 
-  TerrainType, 
-  TERRAIN_TYPES, 
-  initializeAustraliaData
-} from "@/lib/australia-data";
-// @ts-ignore
+import Image from "next/image";
+// @ts-expect-error
 import Papa, { ParseResult } from 'papaparse';
-import { FontLoader } from 'three-stdlib';
-import { TextGeometry } from 'three-stdlib';
 
 const colorScale = [
   { elevation: 1, color: '#97d3ce' },    // light cyan
@@ -29,15 +22,6 @@ const colorScale = [
   { elevation: 3461, color: '#e6f7c6' }  // very pale green
 ];
 
-function getColorForElevation(elevation: number): string {
-  for (let i = 0; i < colorScale.length - 1; i++) {
-    if (elevation < colorScale[i + 1].elevation) {
-      return colorScale[i].color;
-    }
-  }
-  return colorScale[colorScale.length - 1].color;
-}
-
 function getBandIndex(elevation: number) {
   for (let i = 0; i < colorScale.length - 1; i++) {
     if (elevation < colorScale[i + 1].elevation) {
@@ -50,8 +34,6 @@ function getBandIndex(elevation: number) {
 export default function VoxelExperiment() {
   const mountRef = useRef<HTMLDivElement>(null);
   const isFlyingRef = useRef(false);
-  const [isFlyingState, setIsFlyingState] = useState(false);
-  const [speed, setSpeed] = useState(0.5);
   const [elevationData, setElevationData] = useState<number[][]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -62,10 +44,7 @@ export default function VoxelExperiment() {
   const planeRef = useRef<THREE.Mesh | null>(null);
   
   const keysRef = useRef<Set<string>>(new Set());
-  const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isPointerLockedRef = useRef(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [cameraPosition, setCameraPosition] = useState<string>('');
   const lastCameraUpdateRef = useRef<number>(0);
 
   // Load CSV elevation data
@@ -107,9 +86,6 @@ export default function VoxelExperiment() {
     camera.rotation.x = -Math.PI / 3;
     cameraRef.current = camera;
     
-    // Set initial camera position in debug
-    setCameraPosition(`X: ${camera.position.x.toFixed(2)}, Y: ${camera.position.y.toFixed(2)}, Z: ${camera.position.z.toFixed(2)}`);
-
     // Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
@@ -212,13 +188,11 @@ export default function VoxelExperiment() {
       console.log('KeyDown event:', event.code, 'target:', event.target);
       keysRef.current.add(event.code);
       console.log('Key pressed:', event.code);
-      setDebugInfo(`Keys: ${Array.from(keysRef.current).join(', ')}`);
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
       console.log('KeyUp event:', event.code, 'target:', event.target);
       keysRef.current.delete(event.code);
-      setDebugInfo(`Keys: ${Array.from(keysRef.current).join(', ')}`);
     };
 
     // Add listeners to both document and window to ensure they work
@@ -232,7 +206,6 @@ export default function VoxelExperiment() {
       if (!isPointerLockedRef.current) {
         renderer.domElement.requestPointerLock();
         isFlyingRef.current = true;
-        setIsFlyingState(true);
         console.log('Flying mode activated');
       }
     };
@@ -250,7 +223,7 @@ export default function VoxelExperiment() {
 
       // Movement controls - work even without pointer lock for testing
       if (isFlyingRef.current) {
-        const moveSpeed = speed * 5; // Increased multiplier to make movement more noticeable
+        const moveSpeed = 5; // Increased multiplier to make movement more noticeable
         let moved = false;
         
         // Debug key states
@@ -337,12 +310,12 @@ export default function VoxelExperiment() {
       
       renderer.dispose();
     };
-  }, [elevationData, isLoading, speed]);
+  }, [elevationData, isLoading]);
 
   function maybeUpdateCameraPosition(camera: THREE.PerspectiveCamera) {
     const now = Date.now();
     if (now - lastCameraUpdateRef.current > 200) {
-      setCameraPosition(`X: ${camera.position.x.toFixed(2)}, Y: ${camera.position.y.toFixed(2)}, Z: ${camera.position.z.toFixed(2)}`);
+      console.log('Camera position updated:', camera.position);
       lastCameraUpdateRef.current = now;
     }
   }
@@ -383,7 +356,7 @@ export default function VoxelExperiment() {
       >
         {/* Australia Image Overlay */}
         <div className="absolute top-4 right-4 z-10">
-          <img src="/australia.png" alt="Australia" className="h-32 w-auto opacity-80" />
+          <Image src="/australia.png" alt="Australia" className="h-32 w-auto opacity-80" width={128} height={128} />
         </div>
       </div>
 

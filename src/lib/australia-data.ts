@@ -210,7 +210,7 @@ function isPointInAustralia(lat: number, lon: number): boolean {
   return inMainland || inTasmania;
 }
 
-export function generateStackedVoxels(elevation: number, terrainType: TerrainType): number {
+export function generateStackedVoxels(elevation: number): number {
   // Convert elevation to number of stacked voxels
   // 1 voxel = 1000 feet (304.8 meters)
   const elevationInFeet = elevation * 3.28084; // Convert meters to feet
@@ -251,7 +251,7 @@ export async function generateAustraliaVoxelData(): Promise<VoxelData[]> {
         const z = (lat - AUSTRALIA_BOUNDS.south) / GRID_RESOLUTION;
         
         // Generate stacked voxels based on elevation
-        const stackedVoxels = generateStackedVoxels(elevation, terrainType);
+        const stackedVoxels = generateStackedVoxels(elevation);
         
         for (let y = 0; y < stackedVoxels; y++) {
           voxels.push({
@@ -361,7 +361,7 @@ export function initializeAustraliaData(): VoxelData[] {
       }
       
       // Generate stacked voxels
-      const stackedVoxels = generateStackedVoxels(elevation, terrainType);
+      const stackedVoxels = generateStackedVoxels(elevation);
       
       for (let y = 0; y < stackedVoxels; y++) {
         data.push({ x, z, y, terrainType, elevation });
@@ -370,4 +370,15 @@ export function initializeAustraliaData(): VoxelData[] {
   }
   
   return data;
+}
+
+export function getTerrainColor(elevation: number): string {
+  // Simple terrain color mapping based on elevation
+  if (elevation < 0) return '#006994'; // Deep water
+  if (elevation < 10) return '#4A90E2'; // Shallow water
+  if (elevation < 50) return '#F4D03F'; // Beach
+  if (elevation < 200) return '#27AE60'; // Grassland
+  if (elevation < 500) return '#8B4513'; // Forest
+  if (elevation < 1000) return '#7F8C8D'; // Mountain
+  return '#FFFFFF'; // Snow
 } 
