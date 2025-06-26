@@ -178,6 +178,60 @@ export default function PortabanPage() {
   const [isSolving, setIsSolving] = useState(false);
   const [showNoSolution, setShowNoSolution] = useState(false);
 
+  // Touch/swipe state
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
+
+  // Minimum swipe distance (in pixels)
+  const minSwipeDistance = 30;
+
+  // Touch event handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distanceX = touchStart.x - touchEnd.x;
+    const distanceY = touchStart.y - touchEnd.y;
+    const isHorizontalSwipe = Math.abs(distanceX) > Math.abs(distanceY);
+    const isLongEnough = Math.abs(distanceX) > minSwipeDistance || Math.abs(distanceY) > minSwipeDistance;
+
+    if (isLongEnough) {
+      if (isHorizontalSwipe) {
+        // Horizontal swipe
+        if (distanceX > 0) {
+          // Swipe left
+          movePlayer(-1, 0);
+        } else {
+          // Swipe right
+          movePlayer(1, 0);
+        }
+      } else {
+        // Vertical swipe
+        if (distanceY > 0) {
+          // Swipe up
+          movePlayer(0, -1);
+        } else {
+          // Swipe down
+          movePlayer(0, 1);
+        }
+      }
+    }
+  };
+
   // Check if level is complete
   const checkCompletion = useCallback((grid: Cell[][]): boolean => {
     let totalGoals = 0;
@@ -475,32 +529,32 @@ export default function PortabanPage() {
     switch (cellType) {
       case 'box':
         return (
-          <div className="w-6 h-6 bg-amber-600 border-2 border-amber-800 rounded-sm flex items-center justify-center">
-            <div className="w-3 h-3 bg-amber-400 rounded-sm"></div>
+          <div className="w-4 h-4 lg:w-6 lg:h-6 bg-amber-600 border-2 border-amber-800 rounded-sm flex items-center justify-center">
+            <div className="w-2 h-2 lg:w-3 lg:h-3 bg-amber-400 rounded-sm"></div>
           </div>
         );
       case 'goal':
         return (
-          <div className="w-6 h-6 border-2 border-yellow-400 border-dashed rounded-full flex items-center justify-center">
-            <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+          <div className="w-4 h-4 lg:w-6 lg:h-6 border-2 border-yellow-400 border-dashed rounded-full flex items-center justify-center">
+            <div className="w-1 h-1 lg:w-2 lg:h-2 bg-yellow-400 rounded-full"></div>
           </div>
         );
       case 'player':
         return (
-          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-            <div className="w-3 h-3 bg-blue-300 rounded-full"></div>
+          <div className="w-4 h-4 lg:w-6 lg:h-6 bg-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-2 h-2 lg:w-3 lg:h-3 bg-blue-300 rounded-full"></div>
           </div>
         );
       case 'boxOnGoal':
         return (
-          <div className="w-6 h-6 bg-green-600 border-2 border-green-800 rounded-sm flex items-center justify-center">
-            <div className="w-3 h-3 bg-green-400 rounded-sm"></div>
+          <div className="w-4 h-4 lg:w-6 lg:h-6 bg-green-600 border-2 border-green-800 rounded-sm flex items-center justify-center">
+            <div className="w-2 h-2 lg:w-3 lg:h-3 bg-green-400 rounded-sm"></div>
           </div>
         );
       case 'playerOnGoal':
         return (
-          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-            <div className="w-3 h-3 bg-green-300 rounded-full"></div>
+          <div className="w-4 h-4 lg:w-6 lg:h-6 bg-green-500 rounded-full flex items-center justify-center">
+            <div className="w-2 h-2 lg:w-3 lg:h-3 bg-green-300 rounded-full"></div>
           </div>
         );
       default:
@@ -519,108 +573,115 @@ export default function PortabanPage() {
         <h1 className="text-xl font-bold text-white">Sokoban Solver</h1>
       </header>
       
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="max-w-6xl w-full">
-          <div className="flex space-x-8">
-            {/* Left Panel - Instructions and Controls */}
-            <div className="w-64 flex-shrink-0">
-              <div className="bg-gray-800 p-6 rounded-lg h-fit">
-                <h2 className="text-xl font-bold mb-4 text-green-400">How to Play</h2>
-                <p className="text-sm mb-4 text-gray-300">
-                  Push the boxes onto the storage spaces.
-                </p>
+      <div className="flex-1 flex flex-col lg:flex-row items-center justify-center p-4 lg:p-8 gap-4 lg:gap-8">
+        {/* Instructions and Controls - Top on mobile, left on desktop */}
+        <div className="w-full lg:w-64 flex-shrink-0 order-1 lg:order-1">
+          <div className="bg-gray-800 p-4 lg:p-6 rounded-lg h-fit">
+            <h2 className="text-lg lg:text-xl font-bold mb-3 lg:mb-4 text-green-400">How to Play</h2>
+            <p className="text-xs lg:text-sm mb-3 lg:mb-4 text-gray-300">
+              Push the boxes onto the storage spaces.
+            </p>
+            <p className="text-xs lg:text-sm mb-3 lg:mb-4 text-blue-400">
+              💡 Use arrow keys or swipe on mobile to move.
+            </p>
 
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <div className="w-3 h-3 bg-blue-300 rounded-full"></div>
-                    </div>
-                    <span className="text-sm text-gray-300">Player</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-amber-600 border-2 border-amber-800 rounded-sm flex items-center justify-center">
-                      <div className="w-3 h-3 bg-amber-400 rounded-sm"></div>
-                    </div>
-                    <span className="text-sm text-gray-300">Box</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 border-2 border-yellow-400 border-dashed rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                    </div>
-                    <span className="text-sm text-gray-300">Storage Space</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-green-600 border-2 border-green-800 rounded-sm flex items-center justify-center">
-                      <div className="w-3 h-3 bg-green-400 rounded-sm"></div>
-                    </div>
-                    <span className="text-sm text-gray-300">Box on Storage</span>
-                  </div>
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 lg:gap-3 mb-4 lg:mb-6">
+              <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="w-4 h-4 lg:w-6 lg:h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 lg:w-3 lg:h-3 bg-blue-300 rounded-full"></div>
                 </div>
-                
-                <button
-                  onClick={resetLevel}
-                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-semibold"
-                >
-                  Reset Level
-                </button>
-                
-                <button
-                  onClick={solveLevel}
-                  disabled={isSolving || isComplete}
-                  className="w-full px-6 py-3 mt-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors font-semibold"
-                >
-                  {isSolving ? 'Solving...' : 'Solve Level'}
-                </button>
+                <span className="text-xs lg:text-sm text-gray-300">Player</span>
+              </div>
+              <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="w-4 h-4 lg:w-6 lg:h-6 bg-amber-600 border-2 border-amber-800 rounded-sm flex items-center justify-center">
+                  <div className="w-2 h-2 lg:w-3 lg:h-3 bg-amber-400 rounded-sm"></div>
+                </div>
+                <span className="text-xs lg:text-sm text-gray-300">Box</span>
+              </div>
+              <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="w-4 h-4 lg:w-6 lg:h-6 border-2 border-yellow-400 border-dashed rounded-full flex items-center justify-center">
+                  <div className="w-1 h-1 lg:w-2 lg:h-2 bg-yellow-400 rounded-full"></div>
+                </div>
+                <span className="text-xs lg:text-sm text-gray-300">Storage</span>
+              </div>
+              <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="w-4 h-4 lg:w-6 lg:h-6 bg-green-600 border-2 border-green-800 rounded-sm flex items-center justify-center">
+                  <div className="w-2 h-2 lg:w-3 lg:h-3 bg-green-400 rounded-sm"></div>
+                </div>
+                <span className="text-xs lg:text-sm text-gray-300">Box on Storage</span>
               </div>
             </div>
+            
+            <div className="flex gap-2 lg:flex-col">
+              <button
+                onClick={resetLevel}
+                className="flex-1 lg:w-full px-3 lg:px-6 py-2 lg:py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-semibold text-sm lg:text-base"
+              >
+                Reset Level
+              </button>
+              
+              <button
+                onClick={solveLevel}
+                disabled={isSolving || isComplete}
+                className="flex-1 lg:w-full px-3 lg:px-6 py-2 lg:py-3 mt-0 lg:mt-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition-colors font-semibold text-sm lg:text-base"
+              >
+                {isSolving ? 'Solving...' : 'Solve Level'}
+              </button>
+            </div>
+          </div>
+        </div>
 
-            {/* Center Panel - Game Board */}
-            <div className="flex-1 flex justify-center">
-              <div className="bg-gray-800 p-4 rounded-lg">
-                <div className="grid gap-1" style={{ 
-                  gridTemplateColumns: `repeat(${level[0].length}, 1fr)` 
-                }}>
-                  {level.map((row, y) =>
-                    row.map((cell, x) => (
-                      <div
-                        key={`${x}-${y}`}
-                        className="w-8 h-8 flex items-center justify-center text-2xl border border-gray-600"
-                        style={{ 
-                          backgroundColor: cell === 'wall' ? '#8B4513' : '#1F2937' 
-                        }}
-                      >
-                        {getCellSprite(getCellDisplay(cell))}
-                      </div>
-                    ))
+        {/* Game Board - Center */}
+        <div className="flex-1 flex justify-center order-2 lg:order-2">
+          <div 
+            className="bg-gray-800 p-2 lg:p-4 rounded-lg touch-none"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <div className="grid gap-0.5 lg:gap-1" style={{ 
+              gridTemplateColumns: `repeat(${level[0].length}, 1fr)` 
+            }}>
+              {level.map((row, y) =>
+                row.map((cell, x) => (
+                  <div
+                    key={`${x}-${y}`}
+                    className="w-6 h-6 lg:w-8 lg:h-8 flex items-center justify-center text-2xl border border-gray-600"
+                    style={{ 
+                      backgroundColor: cell === 'wall' ? '#8B4513' : '#1F2937' 
+                    }}
+                  >
+                    {getCellSprite(getCellDisplay(cell))}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Level List - Bottom on mobile, right on desktop */}
+        <div className="w-full lg:w-32 flex-shrink-0 order-3 lg:order-3">
+          <div className="bg-gray-800 p-2 rounded-lg h-fit">
+            <h3 className="text-sm font-semibold mb-2 text-gray-300 lg:hidden">Levels</h3>
+            <div className="grid grid-cols-5 lg:grid-cols-1 gap-1 lg:space-y-1">
+              {levels.map((level, index) => (
+                <button
+                  key={level.id}
+                  onClick={() => loadLevel(index)}
+                  className={`w-full flex items-center justify-between text-xs p-1 lg:p-2 rounded transition-colors font-mono border border-gray-700 ${
+                    index === currentLevelIndex
+                      ? 'bg-blue-600 text-white border-blue-400'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  <span className="truncate">
+                    {level.name}
+                  </span>
+                  {completedLevels[index] && (
+                    <span className="ml-1 flex-shrink-0">✓</span>
                   )}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Panel - Level List */}
-            <div className="w-32 flex-shrink-0">
-              <div className="bg-gray-800 p-2 rounded-lg h-fit">
-                <div className="space-y-1">
-                  {levels.map((level, index) => (
-                    <button
-                      key={level.id}
-                      onClick={() => loadLevel(index)}
-                      className={`w-full flex items-center justify-between text-xs p-2 rounded transition-colors font-mono border border-gray-700 ${
-                        index === currentLevelIndex
-                          ? 'bg-blue-600 text-white border-blue-400'
-                          : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                      }`}
-                    >
-                      <span>
-                        {level.name}
-                      </span>
-                      {completedLevels[index] && (
-                        <span className="ml-1">✓</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -628,10 +689,10 @@ export default function PortabanPage() {
       
       {/* No Solution Modal */}
       {showNoSolution && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-8 rounded-lg border border-red-500">
-            <h3 className="text-2xl font-bold text-red-400 mb-4 text-center">No Solution!</h3>
-            <p className="text-gray-300 text-center">This level cannot be solved from the current state.</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 p-6 lg:p-8 rounded-lg border border-red-500 max-w-sm w-full">
+            <h3 className="text-xl lg:text-2xl font-bold text-red-400 mb-4 text-center">No Solution!</h3>
+            <p className="text-gray-300 text-center text-sm lg:text-base">This level cannot be solved from the current state.</p>
           </div>
         </div>
       )}
