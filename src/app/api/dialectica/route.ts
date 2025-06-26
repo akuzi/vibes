@@ -77,10 +77,6 @@ async function generateAnalysis(statement: string): Promise<AnalysisResult> {
         {
           "title": "Evidence title (e.g., 'Study shows 40% increase')",
           "description": "Detailed description of the evidence"
-        },
-        {
-          "title": "Another evidence title",
-          "description": "Detailed description of this evidence"
         }
       ]
     }
@@ -103,10 +99,6 @@ async function generateAnalysis(statement: string): Promise<AnalysisResult> {
         {
           "title": "Evidence title (e.g., 'Research indicates negative impact')",
           "description": "Detailed description of the evidence"
-        },
-        {
-          "title": "Another evidence title",
-          "description": "Detailed description of this evidence"
         }
       ]
     }
@@ -115,9 +107,9 @@ async function generateAnalysis(statement: string): Promise<AnalysisResult> {
 }
 
 Guidelines:
-- Provide 5 to 7 of the strongest arguments on each side, ordered by score from highest to lowest
-- For each main argument, provide 1-3 counter arguments that challenge or refute it
-- For each argument, provide 2-4 pieces of supporting evidence with descriptive titles
+- Provide 3 of the strongest arguments on each side, ordered by score from highest to lowest
+- For each main argument, provide 1-2 counter arguments that challenge or refute it
+- For each argument, provide 1-2 pieces of supporting evidence with descriptive titles
 - Score each argument from 1-10 based on strength and persuasiveness
 - Use action words in titles like "Promotes", "Prevents", "Enables", "Undermines", etc.
 - Keep descriptions informative but concise
@@ -141,7 +133,7 @@ Return ONLY valid JSON, no additional text.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -152,7 +144,7 @@ Return ONLY valid JSON, no additional text.`;
             content: prompt
           }
         ],
-        max_tokens: 1500,
+        max_tokens: 600,
         temperature: 0.7,
       }),
     });
@@ -170,23 +162,40 @@ Return ONLY valid JSON, no additional text.`;
       throw new Error('No analysis received from OpenAI');
     }
 
+    // Remove Markdown code block markers if present
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```[a-zA-Z]*\n/, '').replace(/```$/, '').trim();
+    }
+
     // Parse the JSON response
     try {
-      const analysis = JSON.parse(content);
-      
+      const analysis = JSON.parse(cleanedContent);
       // Validate the structure
       if (!analysis.statement || !analysis.proArguments || !analysis.conArguments || !analysis.balancedPerspective) {
         console.error('Invalid analysis structure:', analysis);
         throw new Error('Invalid analysis structure received from LLM');
       }
-
       return analysis;
     } catch (parseError) {
-      console.error('JSON parsing error:', parseError);
-      console.error('Raw content from LLM:', content);
-      
-      // Don't use fallback - instead throw the error so the user knows something went wrong
-      throw new Error(`Failed to parse LLM response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      // Attempt to repair common JSON issues
+      let repaired = cleanedContent
+        .replace(/,\s*([}\]])/g, '$1') // remove trailing commas
+        .replace(/'/g, '"'); // replace single quotes with double quotes
+      try {
+        const analysis = JSON.parse(repaired);
+        // Validate the structure
+        if (!analysis.statement || !analysis.proArguments || !analysis.conArguments || !analysis.balancedPerspective) {
+          console.error('Invalid analysis structure after repair:', analysis);
+          throw new Error('Invalid analysis structure received from LLM (after repair)');
+        }
+        return analysis;
+      } catch (repairError) {
+        console.error('JSON parsing error:', parseError);
+        console.error('JSON repair error:', repairError);
+        console.error('Raw content from LLM:', cleanedContent);
+        throw new Error(`Failed to parse LLM response after repair: ${repairError instanceof Error ? repairError.message : 'Unknown error'}\nRaw content: ${cleanedContent}`);
+      }
     }
   } catch (error) {
     console.error('OpenAI API call failed:', error);
