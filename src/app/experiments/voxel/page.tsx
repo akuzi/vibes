@@ -9,15 +9,51 @@ import {
   TERRAIN_TYPES, 
   initializeAustraliaData
 } from "@/lib/australia-data";
+// @ts-ignore
+import Papa, { ParseResult } from 'papaparse';
+import { FontLoader } from 'three-stdlib';
+import { TextGeometry } from 'three-stdlib';
+
+const colorScale = [
+  { elevation: 1, color: '#97d3ce' },    // light cyan
+  { elevation: 35, color: '#6b7eea' },   // blue-violet
+  { elevation: 82, color: '#b07ecb' },   // purple
+  { elevation: 125, color: '#c97eb2' },  // magenta
+  { elevation: 168, color: '#e07e7e' },  // red-pink
+  { elevation: 214, color: '#f29b6c' },  // orange
+  { elevation: 261, color: '#f7c46c' },  // light orange
+  { elevation: 316, color: '#f7e96c' },  // yellow
+  { elevation: 380, color: '#c6f76c' },  // yellow-green
+  { elevation: 445, color: '#7cf76c' },  // green
+  { elevation: 544, color: '#6cf7a2' },  // light green
+  { elevation: 3461, color: '#e6f7c6' }  // very pale green
+];
+
+function getColorForElevation(elevation: number): string {
+  for (let i = 0; i < colorScale.length - 1; i++) {
+    if (elevation < colorScale[i + 1].elevation) {
+      return colorScale[i].color;
+    }
+  }
+  return colorScale[colorScale.length - 1].color;
+}
+
+function getBandIndex(elevation: number) {
+  for (let i = 0; i < colorScale.length - 1; i++) {
+    if (elevation < colorScale[i + 1].elevation) {
+      return i;
+    }
+  }
+  return colorScale.length - 1;
+}
 
 export default function VoxelExperiment() {
   const mountRef = useRef<HTMLDivElement>(null);
   const isFlyingRef = useRef(false);
   const [isFlyingState, setIsFlyingState] = useState(false);
   const [speed, setSpeed] = useState(0.5);
-  const [voxelData, setVoxelData] = useState<VoxelData[]>([]);
+  const [elevationData, setElevationData] = useState<number[][]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [useRealData, setUseRealData] = useState(false);
   
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -30,50 +66,25 @@ export default function VoxelExperiment() {
   const isPointerLockedRef = useRef(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [cameraPosition, setCameraPosition] = useState<string>('');
+  const lastCameraUpdateRef = useRef<number>(0);
 
-  // Load Australia data
+  // Load CSV elevation data
   useEffect(() => {
-    const loadData = async () => {
-      console.log('loadData called with useRealData:', useRealData);
+    const loadCSV = async () => {
       setIsLoading(true);
-      try {
-        if (useRealData) {
-          console.log('Loading real Australia data...');
-          const response = await fetch('/api/topography');
-          console.log('API response status:', response.status);
-          
-          if (!response.ok) {
-            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-          }
-          
-          const result = await response.json();
-          console.log('API result:', result);
-          
-          if (result.success) {
-            console.log(`Setting ${result.data.length} voxels`);
-            setVoxelData(result.data);
-            console.log(`Loaded ${result.count} voxels from API`);
-          } else {
-            throw new Error(result.error || 'API returned error');
-          }
-        } else {
-          console.log('Loading simplified Australia data...');
-          const data = initializeAustraliaData();
-          console.log(`Setting ${data.length} simplified voxels`);
-          setVoxelData(data);
+      const response = await fetch('/australia_elevation.csv');
+      const csvText = await response.text();
+      Papa.parse<string[]>(csvText, {
+        complete: (results: ParseResult<string[]>) => {
+          const data = results.data as string[][];
+          const elevation = data.map(row => row.map(Number));
+          setElevationData(elevation);
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error('Failed to load Australia data:', error);
-        // Fallback to simplified data
-        const data = initializeAustraliaData();
-        console.log(`Fallback: Setting ${data.length} simplified voxels`);
-        setVoxelData(data);
-      }
-      setIsLoading(false);
+      });
     };
-
-    loadData();
-  }, [useRealData]);
+    loadCSV();
+  }, []);
 
   // Setup scene
   useEffect(() => {
@@ -91,7 +102,9 @@ export default function VoxelExperiment() {
 
     // Camera setup
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 20, 50); // Start higher to see the stacked voxels
+    camera.position.set(0, 50, 50);
+    camera.lookAt(0, 0, 0); // Look at the center
+    camera.rotation.x = -Math.PI / 4;
     cameraRef.current = camera;
     
     // Set initial camera position in debug
@@ -140,30 +153,34 @@ export default function VoxelExperiment() {
     voxelGroupRef.current = voxelGroup;
     scene.add(voxelGroup);
 
-    // Create voxel meshes from Australia data with performance optimization
-    const maxVoxelsToRender = 10000; // Limit for performance
-    const voxelsToRender = voxelData.slice(0, maxVoxelsToRender);
-    
-    voxelsToRender.forEach(voxel => {
-      const geometry = new THREE.BoxGeometry(1, 1, 1); // Each voxel is 1x1x1
-      const material = new THREE.MeshLambertMaterial({ 
-        color: voxel.terrainType.color,
-        transparent: true,
-        opacity: 0.9
-      });
-      const mesh = new THREE.Mesh(geometry, material);
-      
-      // Position voxel in world space - stack them vertically
-      mesh.position.set(
-        (voxel.x - 50) * 1.5, // Center the grid and scale
-        voxel.y + 0.5, // Stack voxels vertically, each layer is 1 unit high
-        (voxel.z - 50) * 1.5
-      );
-      
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      voxelGroup.add(mesh);
-    });
+    // Create voxel meshes from elevation data with stacking and color bands
+    const maxVoxelsToRender = 100000; // Increased limit for more map coverage
+    let renderedVoxels = 0;
+    for (let y = 6; y < elevationData.length; y++) {
+      const row = elevationData[y];
+      for (let x = 0; x < row.length; x++) {
+        const elevation = row[x];
+        const bandIndex = getBandIndex(elevation);
+        for (let band = 0; band <= bandIndex; band++) {
+          if (renderedVoxels >= maxVoxelsToRender) break;
+          const color = colorScale[band].color;
+          const geometry = new THREE.BoxGeometry(1, 1, 1);
+          const material = new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.9 });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.set(
+            x - (row.length / 2), // Center the grid
+            band + 0.5, // Stack vertically by band
+            y - (elevationData.length / 2)
+          );
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          voxelGroup.add(mesh);
+          renderedVoxels++;
+        }
+        if (renderedVoxels >= maxVoxelsToRender) break;
+      }
+      if (renderedVoxels >= maxVoxelsToRender) break;
+    }
 
     // Pointer lock controls
     const handlePointerLockChange = () => {
@@ -242,22 +259,22 @@ export default function VoxelExperiment() {
         }
         
         // Simple direct movement for testing
-        if (keysRef.current.has('KeyW')) {
+        if (keysRef.current.has('KeyW') || keysRef.current.has('ArrowUp')) {
           camera.position.z -= moveSpeed;
           moved = true;
           console.log('Moving forward, new Z:', camera.position.z);
         }
-        if (keysRef.current.has('KeyS')) {
+        if (keysRef.current.has('KeyS') || keysRef.current.has('ArrowDown')) {
           camera.position.z += moveSpeed;
           moved = true;
           console.log('Moving backward, new Z:', camera.position.z);
         }
-        if (keysRef.current.has('KeyA')) {
+        if (keysRef.current.has('KeyA') || keysRef.current.has('ArrowLeft')) {
           camera.position.x -= moveSpeed;
           moved = true;
           console.log('Moving left, new X:', camera.position.x);
         }
-        if (keysRef.current.has('KeyD')) {
+        if (keysRef.current.has('KeyD') || keysRef.current.has('ArrowRight')) {
           camera.position.x += moveSpeed;
           moved = true;
           console.log('Moving right, new X:', camera.position.x);
@@ -283,8 +300,7 @@ export default function VoxelExperiment() {
         }
       }
 
-      // Always update camera position debug info
-      setCameraPosition(`X: ${camera.position.x.toFixed(2)}, Y: ${camera.position.y.toFixed(2)}, Z: ${camera.position.z.toFixed(2)}`);
+      maybeUpdateCameraPosition(camera);
 
       renderer.render(scene, camera);
     };
@@ -321,176 +337,74 @@ export default function VoxelExperiment() {
       
       renderer.dispose();
     };
-  }, [voxelData, isLoading, speed]);
+  }, [elevationData, isLoading, speed]);
 
-  // Regenerate voxels when data changes
-  useEffect(() => {
-    if (!voxelGroupRef.current || isLoading) return;
-    
-    voxelGroupRef.current.clear();
-    
-    // Performance optimization - limit rendered voxels
-    const maxVoxelsToRender = 60000; // Increased to show complete Australia
-    const voxelsToRender = voxelData.slice(0, maxVoxelsToRender);
-    
-    console.log(`Rendering ${voxelsToRender.length} voxels out of ${voxelData.length} total`);
-    
-    voxelsToRender.forEach(voxel => {
-      const geometry = new THREE.BoxGeometry(1, 1, 1); // Each voxel is 1x1x1
-      const material = new THREE.MeshLambertMaterial({ 
-        color: voxel.terrainType.color,
-        transparent: true,
-        opacity: 0.9
-      });
-      const mesh = new THREE.Mesh(geometry, material);
-      
-      // Position voxel in world space - stack them vertically
-      mesh.position.set(
-        (voxel.x - 50) * 1.5, // Center the grid and scale
-        voxel.y + 0.5, // Stack voxels vertically, each layer is 1 unit high
-        (voxel.z - 50) * 1.5
-      );
-      
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      voxelGroupRef.current!.add(mesh);
-    });
-  }, [voxelData, isLoading]);
+  function maybeUpdateCameraPosition(camera: THREE.PerspectiveCamera) {
+    const now = Date.now();
+    if (now - lastCameraUpdateRef.current > 200) {
+      setCameraPosition(`X: ${camera.position.x.toFixed(2)}, Y: ${camera.position.y.toFixed(2)}, Z: ${camera.position.z.toFixed(2)}`);
+      lastCameraUpdateRef.current = now;
+    }
+  }
 
   return (
     <div className="flex flex-col h-screen bg-black">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-gray-900 border-b border-green-700">
         <div className="flex items-center space-x-4">
-          <Link href="/" className="text-green-400 hover:text-green-300">
-            ← Back to Experiments
+          <Link href="/" className="text-green-400 hover:text-green-300 mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
           </Link>
-          <h1 className="text-2xl font-mono text-green-400">Australia Voxel Map</h1>
         </div>
-        
-        <div className="text-green-400 font-mono text-sm">
-          {isLoading ? (
-            <span className="text-yellow-400">Loading Australia...</span>
-          ) : isFlyingState ? (
-            <span className="text-yellow-400">Flying Mode Active</span>
-          ) : (
-            <span>Click to start flying</span>
-          )}
-        </div>
+        <h1 className="text-2xl font-mono text-green-400">Voxel World</h1>
+        <div className="w-10"></div>
       </div>
 
-      {/* Controls Panel */}
-      <div className="absolute top-20 left-4 z-10 bg-gray-900 border border-green-700 rounded-lg p-4 text-green-400 font-mono">
-        <h3 className="text-lg mb-3 text-yellow-400">Controls</h3>
-        <div className="space-y-2 text-sm">
-          <div>WASD - Move</div>
+      {/* Controls Panel at the bottom left */}
+      <div className="fixed bottom-4 left-4 z-10 bg-gray-900 border border-green-700 rounded-lg p-2 text-green-400 font-mono text-xs w-56">
+        <h3 className="text-base mb-2 font-bold text-yellow-400 font-mono">Controls</h3>
+        <div className="space-y-1">
+          <div>WASD / Arrow Keys - Move</div>
           <div>Space - Up</div>
           <div>Shift - Down</div>
           <div>Mouse - Look around</div>
-        </div>
-        
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className="block text-sm mb-1">Speed: {speed.toFixed(2)}</label>
-            <input
-              type="range"
-              min="0.01"
-              max="0.5"
-              step="0.01"
-              value={speed}
-              onChange={(e) => setSpeed(parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-          
-          <div>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={useRealData}
-                onChange={(e) => {
-                  console.log('Checkbox changed to:', e.target.checked);
-                  setUseRealData(e.target.checked);
-                }}
-                className="text-green-400"
-              />
-              <span className="text-sm">Use Real Data</span>
-            </label>
-          </div>
-        </div>
-        
-        <div className="mt-4">
-          <h4 className="text-sm font-bold text-yellow-400 mb-2">Terrain Types:</h4>
-          <div className="space-y-1 text-xs">
-            {TERRAIN_TYPES.map(terrain => (
-              <div key={terrain.id} className="flex items-center space-x-2">
-                <div 
-                  className="w-3 h-3 rounded"
-                  style={{ backgroundColor: terrain.color }}
-                />
-                <span>{terrain.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Debug Info */}
-      <div className="absolute top-20 right-4 z-10 bg-gray-900 border border-green-700 rounded-lg p-4 text-green-400 font-mono">
-        <h3 className="text-lg mb-3 text-yellow-400">Debug Info</h3>
-        <div className="space-y-2 text-sm">
-          <div>Flying: {isFlyingState ? 'Yes' : 'No'}</div>
-          <div>Pointer Lock: {isPointerLockedRef.current ? 'Yes' : 'No'}</div>
-          <div>Active Keys: {debugInfo || 'None'}</div>
-          <div>Camera Position: {cameraPosition || 'None'}</div>
-          <div>Total Voxels: {voxelData.length}</div>
-          <div>Rendered Voxels: {Math.min(voxelData.length, 60000)}</div>
-          <div>Grid Resolution: 20km x 20km</div>
-          <div>Elevation Scale: 1000ft/voxel</div>
-          <div>Max Elevation: {Math.max(...voxelData.map(v => v.elevation)).toFixed(0)}m</div>
-          <button 
-            onClick={() => {
-              if (cameraRef.current) {
-                cameraRef.current.position.x += 1;
-                console.log('Test move - new position:', cameraRef.current.position);
-              }
-            }}
-            className="mt-2 px-2 py-1 bg-green-700 hover:bg-green-600 rounded text-xs"
-          >
-            Test Move Camera
-          </button>
-          <button 
-            onClick={() => {
-              if (cameraRef.current) {
-                cameraRef.current.position.set(0, 20, 50); // Reset to initial position
-                console.log('Camera reset to:', cameraRef.current.position);
-              }
-            }}
-            className="mt-2 px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-xs"
-          >
-            Reset Camera
-          </button>
-          <button 
-            onClick={() => {
-              isFlyingRef.current = !isFlyingRef.current;
-              setIsFlyingState(isFlyingRef.current);
-              console.log('Flying mode toggled:', isFlyingRef.current);
-            }}
-            className="mt-2 px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs"
-          >
-            Toggle Flying Mode
-          </button>
         </div>
       </div>
 
       {/* 3D Scene */}
       <div 
         ref={mountRef} 
-        className="flex-1 cursor-crosshair" 
+        className="flex-1 cursor-crosshair relative" 
         tabIndex={0}
         onFocus={() => console.log('3D scene focused')}
         onBlur={() => console.log('3D scene lost focus')}
-      />
+      >
+        {/* Australia Image Overlay */}
+        <div className="absolute top-4 right-4 z-10">
+          <img src="/australia.png" alt="Australia" className="h-32 w-auto opacity-80" />
+        </div>
+      </div>
+
+      {/* Elevation Key panel at the bottom right (more compact) */}
+      <div className="fixed bottom-4 right-4 z-10 bg-gray-900 border border-green-700 rounded-lg p-1 text-green-400 font-mono text-[10px] w-40">
+        <h4 className="text-sm font-bold text-yellow-400 font-mono mb-1">Elevation Key</h4>
+        <div className="space-y-0.5">
+          {colorScale.map((band, i) => (
+            <div key={i} className="flex items-center space-x-1">
+              <div 
+                className="w-2 h-2 rounded"
+                style={{ backgroundColor: band.color }}
+              />
+              <span>
+                {band.elevation}
+                {i < colorScale.length - 1 ? ` - ${colorScale[i + 1].elevation - 1} m` : ' m+'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 } 
