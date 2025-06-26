@@ -247,6 +247,19 @@ const DialecticaPage = () => {
             </button>
           </div>
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="bg-gray-800 p-6 rounded-lg">
+              <div className="flex items-center justify-center space-x-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                <div className="text-blue-400">
+                  <p className="font-semibold">Analyzing your statement...</p>
+                  <p className="text-sm text-gray-400 mt-1">This usually takes 3-8 seconds</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Analysis Section */}
           {analysis && (
             <div className="bg-gray-800 p-6 rounded-lg">

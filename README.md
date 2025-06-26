@@ -1,5 +1,20 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```bash
+# API Keys
+OPENAI_API_KEY=your_openai_api_key_here
+OPENTOPOGRAPHY_API_KEY=your_opentopography_api_key_here
+```
+
+### Getting API Keys
+
+- **OpenAI API Key**: Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+- **OpenTopography API Key**: Get your API key from [OpenTopography Portal](https://portal.opentopography.org/api_credentials)
+
 ## Getting started...
 
 First, run the development server:

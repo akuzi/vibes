@@ -11,7 +11,8 @@ export default function Home() {
     pncalc: "A calculator that accepts the operator before the operands. Explore different ways to write mathematical expressions.",
     pretzl: "A twist on a prefix language - a mix of Python and Lisp. Write and run code with features like functions, loops, lists, and interactive input/output.",
     dialectica: "Dialectica analyzes the pros and cons of a statement. Explore multiple perspectives on complex topics with AI-powered argument analysis.",
-    gasgiant: "Create and customize a 3d gas giant planet. Customize the planet's atmosphere, surface, and more."
+    gasgiant: "Create and customize a 3d gas giant planet. Customize the planet's atmosphere, surface, and more.",
+    voxel: "Fly around a 3D voxel world with procedurally generated terrain and floating objects. Experience immersive first-person exploration in a blocky universe."
   };
 
   return (
@@ -73,6 +74,17 @@ export default function Home() {
                         <p>
                             <span className="text-blue-400">[05]</span>
                             <span className="text-white ml-4">Gas Giant</span>
+                        </p>
+                    </Link>
+                    <Link 
+                        href="/experiments/voxel" 
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('voxel')}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[06]</span>
+                            <span className="text-white ml-4">Voxel World</span>
                         </p>
                     </Link>
                 </div>

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Simple in-memory cache for analysis results
+const analysisCache = new Map<string, AnalysisResult>();
+
 interface Argument {
   title: string;
   score: number;
@@ -29,7 +32,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check cache first
+    const cacheKey = statement.toLowerCase().trim();
+    if (analysisCache.has(cacheKey)) {
+      console.log('Returning cached analysis for:', statement);
+      return NextResponse.json({ analysis: analysisCache.get(cacheKey) });
+    }
+
     const analysis = await generateAnalysis(statement);
+    
+    // Cache the result
+    analysisCache.set(cacheKey, analysis);
 
     return NextResponse.json({ analysis });
   } catch (error) {
@@ -55,85 +68,49 @@ async function generateAnalysis(statement: string): Promise<AnalysisResult> {
     throw new Error('OpenAI API key not configured');
   }
 
-  const prompt = `Analyze the following controversial statement and provide a balanced breakdown of the strongest arguments for and against it. Return your response as a valid JSON object with the following structure:
+  const prompt = `Analyze this statement: "${statement}"
+
+Provide a balanced analysis with 3-4 strong arguments for and against. Return as JSON:
 
 {
   "statement": "${statement}",
   "proArguments": [
     {
-      "title": "Concise title (3-5 words)",
+      "title": "Brief title",
       "score": 8,
-      "description": "Detailed description of the argument",
-      "counterArguments": [
-        {
-          "title": "Counter argument title",
-          "score": 7,
-          "description": "Detailed description of the counter argument",
-          "counterArguments": [],
-          "evidence": []
-        }
-      ],
+      "description": "Clear argument description",
+      "counterArguments": [],
       "evidence": [
         {
-          "title": "Evidence title (e.g., 'Study shows 40% increase')",
-          "description": "Detailed description of the evidence"
-        },
-        {
-          "title": "Another evidence title",
-          "description": "Detailed description of this evidence"
+          "title": "Evidence title",
+          "description": "Brief evidence description"
         }
       ]
     }
   ],
   "conArguments": [
     {
-      "title": "Concise title (3-5 words)", 
+      "title": "Brief title", 
       "score": 7,
-      "description": "Detailed description of the argument",
-      "counterArguments": [
-        {
-          "title": "Counter argument title",
-          "score": 8,
-          "description": "Detailed description of the counter argument",
-          "counterArguments": [],
-          "evidence": []
-        }
-      ],
+      "description": "Clear argument description",
+      "counterArguments": [],
       "evidence": [
         {
-          "title": "Evidence title (e.g., 'Research indicates negative impact')",
-          "description": "Detailed description of the evidence"
-        },
-        {
-          "title": "Another evidence title",
-          "description": "Detailed description of this evidence"
+          "title": "Evidence title",
+          "description": "Brief evidence description"
         }
       ]
     }
   ],
-  "balancedPerspective": "A nuanced summary that acknowledges the complexity of the issue"
+  "balancedPerspective": "Nuanced summary"
 }
 
-Guidelines:
-- Provide 5 to 7 of the strongest arguments on each side, ordered by score from highest to lowest
-- For each main argument, provide 1-3 counter arguments that challenge or refute it
-- For each argument, provide 2-4 pieces of supporting evidence with descriptive titles
-- Score each argument from 1-10 based on strength and persuasiveness
-- Use action words in titles like "Promotes", "Prevents", "Enables", "Undermines", etc.
-- Keep descriptions informative but concise
-- Focus on factual arguments rather than emotional appeals
-- Be objective and fair to both sides
-
-Scoring Guidelines:
-- 10/10: Extremely compelling, well-supported, addresses core issues
-- 8-9/10: Very strong, well-reasoned, significant impact  
-- 6-7/10: Strong, reasonable, moderate impact
-- 4-5/10: Moderate strength, some merit but limited impact
-- 1-3/10: Weak, poorly supported, minimal impact
-
-Return ONLY valid JSON, no additional text.`;
+Keep it concise. Return only valid JSON.`;
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -141,21 +118,24 @@ Return ONLY valid JSON, no additional text.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
-            content: 'You are Dialectica, an AI that provides balanced analysis of controversial statements. You always present both sides fairly and encourage nuanced thinking. Return responses as valid JSON only.'
+            content: 'You are Dialectica, an AI that provides balanced analysis. Return responses as valid JSON only.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 1500,
+        max_tokens: 800,
         temperature: 0.7,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -190,6 +170,16 @@ Return ONLY valid JSON, no additional text.`;
     }
   } catch (error) {
     console.error('OpenAI API call failed:', error);
+    
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Analysis timed out. Please try again with a simpler statement.');
+      }
+      if (error.message.includes('API key')) {
+        throw new Error('API configuration error. Please contact support.');
+      }
+    }
     
     // Fallback to mock response
     return {
