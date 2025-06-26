@@ -102,9 +102,9 @@ export default function VoxelExperiment() {
 
     // Camera setup
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 50, 50);
+    camera.position.set(0, 70, 50);
     camera.lookAt(0, 0, 0); // Look at the center
-    camera.rotation.x = -Math.PI / 4;
+    camera.rotation.x = -Math.PI / 3;
     cameraRef.current = camera;
     
     // Set initial camera position in debug
