@@ -179,7 +179,7 @@ Return ONLY valid JSON, no additional text.`;
       return analysis;
     } catch (parseError) {
       // Attempt to repair common JSON issues
-      let repaired = cleanedContent
+      const repaired = cleanedContent
         .replace(/,\s*([}\]])/g, '$1') // remove trailing commas
         .replace(/'/g, '"'); // replace single quotes with double quotes
       try {

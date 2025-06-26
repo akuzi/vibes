@@ -59,6 +59,12 @@ export default function PlanetPop() {
   const skyGroupRef = useRef<THREE.Group | null>(null);
   const timeRef = useRef(0);
   const noiseRef = useRef(createNoise3D());
+  const starDistanceRef = useRef(starDistance);
+  const starBrightnessRef = useRef(starBrightness);
+
+  // Update refs when state changes
+  starDistanceRef.current = starDistance;
+  starBrightnessRef.current = starBrightness;
 
   const updatePlanetColors = useCallback(() => {
     if (!planetMeshRef.current) return;
@@ -144,12 +150,12 @@ export default function PlanetPop() {
     const sunGeometry = new THREE.SphereGeometry(SUN_RADIUS, 64, 64);
     const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xfff7b2 });
     const starMesh = new THREE.Mesh(sunGeometry, sunMaterial);
-    starMesh.position.set(starDistance, 0, 10);
+    starMesh.position.set(starDistanceRef.current, 0, 10);
     skyGroup.add(starMesh);
     starMeshRef.current = starMesh;
 
     // --- STAR LIGHT ---
-    const starLight = new THREE.PointLight(0xfff7b2, starBrightness, 100);
+    const starLight = new THREE.PointLight(0xfff7b2, starBrightnessRef.current, 100);
     starMesh.add(starLight);
     starLightRef.current = starLight;
 
@@ -242,7 +248,7 @@ export default function PlanetPop() {
         rendererRef.current.setSize(clientWidth, clientHeight);
         cameraRef.current.aspect = clientWidth / clientHeight;
         cameraRef.current.updateProjectionMatrix();
-        starLightRef.current.intensity = starBrightness;
+        starLightRef.current.intensity = starBrightnessRef.current;
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
@@ -258,10 +264,10 @@ export default function PlanetPop() {
 
   useEffect(() => {
     if (starMeshRef.current) {
-      starMeshRef.current.position.set(starDistance, 0, 10);
+      starMeshRef.current.position.set(starDistanceRef.current, 0, 10);
     }
     if (starLightRef.current) {
-      starLightRef.current.intensity = starBrightness;
+      starLightRef.current.intensity = starBrightnessRef.current;
     }
   }, [starDistance, starBrightness]);
 
