@@ -4,7 +4,7 @@ import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import Link from "next/link";
 import Image from "next/image";
-// @ts-expect-error
+// @ts-expect-error - Papa Parse types are not available in the current setup
 import Papa, { ParseResult } from 'papaparse';
 
 const colorScale = [

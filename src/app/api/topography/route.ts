@@ -1,26 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateAustraliaVoxelData } from '@/lib/australia-data';
+import { NextResponse } from 'next/server';
+import { generateAustraliaVoxelData, VoxelData } from '@/lib/australia-data';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log('API: Generating Australia voxel data...');
     console.log('API: Environment check - OPENTOPOGRAPHY_API_KEY exists:', !!process.env.OPENTOPOGRAPHY_API_KEY);
     
     // Add timeout to prevent hanging
-    const timeoutPromise = new Promise((_, reject) => {
+    const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Request timeout')), 30000); // 30 second timeout
     });
     
     const dataPromise = generateAustraliaVoxelData();
     
-    const voxelData = await Promise.race([dataPromise, timeoutPromise]) as any;
+    const voxelData = await Promise.race([dataPromise, timeoutPromise]) as VoxelData[];
     
     console.log(`API: Generated ${voxelData.length} voxels`);
     console.log('API: First few voxels:', voxelData.slice(0, 3));
     
     // Sample voxels evenly across the entire area instead of just taking the first ones
     const maxVoxels = 60000; // Increased to show complete Australia
-    let limitedData;
+    let limitedData: VoxelData[];
     
     if (voxelData.length <= maxVoxels) {
       limitedData = voxelData;
@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
     }
     
     console.log(`API: Limited to ${limitedData.length} voxels for performance`);
-    console.log('API: Data bounds - X:', Math.min(...limitedData.map((v: any) => v.x)), 'to', Math.max(...limitedData.map((v: any) => v.x)));
-    console.log('API: Data bounds - Z:', Math.min(...limitedData.map((v: any) => v.z)), 'to', Math.max(...limitedData.map((v: any) => v.z)));
+    console.log('API: Data bounds - X:', Math.min(...limitedData.map((v: VoxelData) => v.x)), 'to', Math.max(...limitedData.map((v: VoxelData) => v.x)));
+    console.log('API: Data bounds - Z:', Math.min(...limitedData.map((v: VoxelData) => v.z)), 'to', Math.max(...limitedData.map((v: VoxelData) => v.z)));
     
     const response = {
       success: true,
