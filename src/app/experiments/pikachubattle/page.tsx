@@ -90,7 +90,7 @@ export default function PikachuBattle() {
           gameWinner = 'Pikachu';
           newLog.push(`🏆 Pikachu wins the battle!`);
         } else {
-          newLog.push(`👻 Gengar's HP: ${newHp}`);
+          newLog.push(`👻 Gengar&apos;s HP: ${newHp}`);
         }
       } else {
         const newHp = Math.max(0, pikachuHp - attack.damage);
@@ -113,7 +113,7 @@ export default function PikachuBattle() {
     if (!isGameOver) {
       const nextTurn = attacker === 'Pikachu' ? 'Gengar' : 'Pikachu';
       setCurrentTurn(nextTurn);
-      newLog.push(`🔄 ${nextTurn}'s turn!`);
+      newLog.push(`🔄 ${nextTurn}&apos;s turn!`);
       
       // If it's Gengar's turn, make AI decision after a short delay
       if (nextTurn === 'Gengar') {
@@ -277,7 +277,7 @@ export default function PikachuBattle() {
           fontWeight: 500,
           color: currentTurn === 'Pikachu' ? '#f57c00' : '#7b1fa2'
         }}>
-          ⚡ {currentTurn}'s turn!
+          ⚡ {currentTurn}&apos;s turn!
         </div>
       )}
 
