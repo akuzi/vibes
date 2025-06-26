@@ -177,20 +177,6 @@ export default function PortabanPage() {
   const [completedLevels, setCompletedLevels] = useState<boolean[]>(Array(levels.length).fill(false));
   const [isSolving, setIsSolving] = useState(false);
   const [showNoSolution, setShowNoSolution] = useState(false);
-  const [solutionMoves, setSolutionMoves] = useState<string[]>([]);
-  const [currentSolutionIndex, setCurrentSolutionIndex] = useState(0);
-
-  // Find player position
-  const findPlayer = useCallback((grid: Cell[][]): Position => {
-    for (let y = 0; y < grid.length; y++) {
-      for (let x = 0; x < grid[y].length; x++) {
-        if (grid[y][x] === 'player' || grid[y][x] === 'playerOnGoal') {
-          return { x, y };
-        }
-      }
-    }
-    return { x: 0, y: 0 };
-  }, []);
 
   // Check if level is complete
   const checkCompletion = useCallback((grid: Cell[][]): boolean => {
@@ -259,6 +245,15 @@ export default function PortabanPage() {
     }
   }, [level, playerPos, moves, isComplete, checkCompletion, currentLevelIndex]);
 
+  // Reset level
+  const resetLevel = useCallback(() => {
+    const currentLevel = levels[currentLevelIndex];
+    setLevel(currentLevel.data.map(row => [...row]));
+    setPlayerPos(currentLevel.playerPos);
+    setMoves(0);
+    setIsComplete(false);
+  }, [currentLevelIndex]);
+
   // Handle keyboard input
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -297,16 +292,7 @@ export default function PortabanPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [movePlayer]);
-
-  // Reset level
-  const resetLevel = () => {
-    const currentLevel = levels[currentLevelIndex];
-    setLevel(currentLevel.data.map(row => [...row]));
-    setPlayerPos(currentLevel.playerPos);
-    setMoves(0);
-    setIsComplete(false);
-  };
+  }, [movePlayer, resetLevel]);
 
   // Load level
   const loadLevel = (levelIndex: number) => {
@@ -324,8 +310,6 @@ export default function PortabanPage() {
     
     setIsSolving(true);
     setShowNoSolution(false);
-    setSolutionMoves([]);
-    setCurrentSolutionIndex(0);
 
     try {
       const response = await fetch('/api/sokoban-solver', {
@@ -354,7 +338,6 @@ export default function PortabanPage() {
         setShowNoSolution(true);
         setTimeout(() => setShowNoSolution(false), 3000);
       } else {
-        setSolutionMoves(data.solution);
         // Execute the solution moves
         executeSolution(data.solution);
       }

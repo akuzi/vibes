@@ -64,14 +64,14 @@ export default function PikachuBattle() {
     return '#d32f2f'; // Red for low accuracy
   };
 
-  const executeAttack = (attacker: string, attack: any) => {
+  const executeAttack = (attacker: string, attack: { name: string; damage: number; accuracy: number }) => {
     if (gameOver || currentTurn !== attacker) return;
 
     // Check if attack hits based on accuracy
     const hitRoll = Math.random() * 100;
     const hit = hitRoll <= attack.accuracy;
     
-    let newLog = [...battleLog];
+    const newLog = [...battleLog];
     let isGameOver = false;
     let gameWinner = null;
     
@@ -102,7 +102,7 @@ export default function PikachuBattle() {
           gameWinner = 'Gengar';
           newLog.push(`🏆 Gengar wins the battle!`);
         } else {
-          newLog.push(`⚡ Pikachu's HP: ${newHp}`);
+          newLog.push(`⚡ Pikachu&apos;s HP: ${newHp}`);
         }
       }
     } else {
