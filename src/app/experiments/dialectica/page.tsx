@@ -53,7 +53,7 @@ const DialecticaPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ statement: statement.trim() }),
+        body: JSON.stringify({ prompt: statement.trim() }),
       });
 
       if (!response.ok) {
@@ -66,7 +66,20 @@ const DialecticaPage = () => {
         throw new Error(data.error);
       }
       
-      setAnalysis(data.analysis);
+      // If OpenAI response, parse the content
+      if (data.result && data.result.choices && data.result.choices[0]?.message?.content) {
+        // Try to parse as JSON, fallback to plain text
+        try {
+          const analysis = JSON.parse(data.result.choices[0].message.content);
+          setAnalysis(analysis);
+        } catch {
+          setAnalysis({ statement: statement.trim(), proArguments: [], conArguments: [], balancedPerspective: data.result.choices[0].message.content });
+        }
+      } else if (data.analysis) {
+        setAnalysis(data.analysis);
+      } else {
+        setAnalysis(null);
+      }
     } catch (error) {
       console.error('Analysis error:', error);
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
