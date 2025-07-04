@@ -66,14 +66,46 @@ const DialecticaPage = () => {
         throw new Error(data.error);
       }
       
-      // If OpenAI response, parse the content
-      if (data.result && data.result.choices && data.result.choices[0]?.message?.content) {
-        // Try to parse as JSON, fallback to plain text
+      // Prefer parsed field from backend if available
+      if (data.parsed) {
+        setAnalysis({
+          statement: data.parsed.statement || statement.trim(),
+          proArguments: Array.isArray(data.parsed.proArguments) ? data.parsed.proArguments.map((arg: any) => ({
+            ...arg,
+            counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
+            evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
+          })) : [],
+          conArguments: Array.isArray(data.parsed.conArguments) ? data.parsed.conArguments.map((arg: any) => ({
+            ...arg,
+            counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
+            evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
+          })) : [],
+          balancedPerspective: data.parsed.balancedPerspective || '',
+        });
+      } else if (data.result && data.result.choices && data.result.choices[0]?.message?.content) {
         try {
           const analysis = JSON.parse(data.result.choices[0].message.content);
-          setAnalysis(analysis);
+          setAnalysis({
+            statement: analysis.statement || statement.trim(),
+            proArguments: Array.isArray(analysis.proArguments) ? analysis.proArguments.map((arg: any) => ({
+              ...arg,
+              counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
+              evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
+            })) : [],
+            conArguments: Array.isArray(analysis.conArguments) ? analysis.conArguments.map((arg: any) => ({
+              ...arg,
+              counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
+              evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
+            })) : [],
+            balancedPerspective: analysis.balancedPerspective || '',
+          });
         } catch {
-          setAnalysis({ statement: statement.trim(), proArguments: [], conArguments: [], balancedPerspective: data.result.choices[0].message.content });
+          setAnalysis({
+            statement: statement.trim(),
+            proArguments: [],
+            conArguments: [],
+            balancedPerspective: data.result.choices[0].message.content,
+          });
         }
       } else if (data.analysis) {
         setAnalysis(data.analysis);
