@@ -21,6 +21,15 @@ interface AnalysisResult {
   balancedPerspective: string;
 }
 
+// Type for raw argument data from API (may have incomplete fields)
+type RawArgument = Partial<Argument> & {
+  title?: string;
+  score?: number;
+  description?: string;
+  counterArguments?: RawArgument[];
+  evidence?: Argument['evidence'];
+};
+
 const DialecticaPage = () => {
   const [statement, setStatement] = useState('');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -70,12 +79,12 @@ const DialecticaPage = () => {
       if (data.parsed) {
         setAnalysis({
           statement: data.parsed.statement || statement.trim(),
-          proArguments: Array.isArray(data.parsed.proArguments) ? data.parsed.proArguments.map((arg: any) => ({
+          proArguments: Array.isArray(data.parsed.proArguments) ? data.parsed.proArguments.map((arg: RawArgument) => ({
             ...arg,
             counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
             evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
           })) : [],
-          conArguments: Array.isArray(data.parsed.conArguments) ? data.parsed.conArguments.map((arg: any) => ({
+          conArguments: Array.isArray(data.parsed.conArguments) ? data.parsed.conArguments.map((arg: RawArgument) => ({
             ...arg,
             counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
             evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
@@ -87,12 +96,12 @@ const DialecticaPage = () => {
           const analysis = JSON.parse(data.result.choices[0].message.content);
           setAnalysis({
             statement: analysis.statement || statement.trim(),
-            proArguments: Array.isArray(analysis.proArguments) ? analysis.proArguments.map((arg: any) => ({
+            proArguments: Array.isArray(analysis.proArguments) ? analysis.proArguments.map((arg: RawArgument) => ({
               ...arg,
               counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
               evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
             })) : [],
-            conArguments: Array.isArray(analysis.conArguments) ? analysis.conArguments.map((arg: any) => ({
+            conArguments: Array.isArray(analysis.conArguments) ? analysis.conArguments.map((arg: RawArgument) => ({
               ...arg,
               counterArguments: Array.isArray(arg.counterArguments) ? arg.counterArguments : [],
               evidence: Array.isArray(arg.evidence) ? arg.evidence : [],
