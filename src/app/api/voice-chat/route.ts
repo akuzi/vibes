@@ -50,8 +50,36 @@ export async function POST(request: NextRequest) {
 
     const responseText = data.choices[0].message.content;
 
+    // Generate high-quality TTS audio using OpenAI TTS API
+    let audioBase64 = null;
+    try {
+      const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'tts-1-hd', // High quality voice model
+          voice: 'nova', // Natural, friendly voice (options: alloy, echo, fable, onyx, nova, shimmer)
+          input: responseText,
+        }),
+      });
+
+      if (ttsRes.ok) {
+        const audioBuffer = await ttsRes.arrayBuffer();
+        audioBase64 = Buffer.from(audioBuffer).toString('base64');
+      } else {
+        console.error('TTS API error:', await ttsRes.text());
+      }
+    } catch (ttsError) {
+      console.error('TTS generation error:', ttsError);
+      // Continue without audio - frontend can fall back to browser TTS
+    }
+
     return NextResponse.json({ 
       response: responseText,
+      audioBase64: audioBase64, // Base64 encoded MP3 audio
       conversationHistory: [
         ...messages.slice(1), // Remove system message
         { role: 'assistant', content: responseText }

@@ -74,6 +74,7 @@ const VoiceChatPage = () => {
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentTranscriptRef = useRef<string>('');
   const robotVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     // Check browser support
@@ -289,15 +290,24 @@ const VoiceChatPage = () => {
       recognitionRef.current = recognition;
       synthesisRef.current = SpeechSynthesis;
 
-      // Find and set a robot-like voice
+      // Find and set a natural-sounding voice
       const loadVoices = () => {
         const voices = SpeechSynthesis.getVoices();
-        // Look for robot-like voices or use a high-pitched voice
-        // Common robot voice names: "Zira", "Microsoft Zira", or we can use pitch manipulation
+        // Prefer natural-sounding English voices
+        // Look for high-quality voices first (often have "Enhanced" or specific names)
+        const preferredVoices = [
+          'Samantha', 'Alex', 'Victoria', 'Daniel', 'Karen', 'Moira',
+          'Microsoft Zira', 'Microsoft David', 'Microsoft Mark',
+          'Google US English', 'Google UK English'
+        ];
+        
         const robotVoice = voices.find(voice => 
-          voice.name.toLowerCase().includes('zira') ||
-          voice.name.toLowerCase().includes('robot') ||
-          voice.name.toLowerCase().includes('samantha')
+          preferredVoices.some(name => voice.name.includes(name))
+        ) || voices.find(voice => 
+          voice.lang.startsWith('en') && 
+          (voice.name.toLowerCase().includes('enhanced') || 
+           voice.name.toLowerCase().includes('premium') ||
+           voice.localService === false) // Cloud voices are often more natural
         ) || voices.find(voice => voice.lang.startsWith('en'));
         
         robotVoiceRef.current = robotVoice || voices[0] || null;
@@ -411,8 +421,13 @@ const VoiceChatPage = () => {
       setMessages(prev => [...prev, assistantMessage]);
       setConversationHistory(data.conversationHistory || []);
 
-      // Speak the response
-      speakText(data.response);
+      // Play high-quality TTS audio if available, otherwise fall back to browser TTS
+      if (data.audioBase64) {
+        playAudioFromBase64(data.audioBase64);
+      } else {
+        // Fallback to browser TTS
+        speakText(data.response);
+      }
     } catch (err) {
       console.error('Error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -433,6 +448,101 @@ const VoiceChatPage = () => {
     }
   };
 
+  const playAudioFromBase64 = (audioBase64: string) => {
+    try {
+      // Cancel any ongoing audio playback
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current = null;
+      }
+      
+      // Convert base64 to audio blob
+      const audioData = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+      const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      const audio = new Audio(audioUrl);
+      currentAudioRef.current = audio;
+      
+      audio.onplay = () => {
+        setIsSpeaking(true);
+      };
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+        URL.revokeObjectURL(audioUrl); // Clean up
+        // Restart listening after speaking is done (if always listening mode is on)
+        setTimeout(() => {
+          setIsInCooldown(false);
+          if (isAlwaysListeningRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch {
+              // Already started or not ready, ignore
+            }
+          }
+        }, 2000); // Wait 2 seconds after speaking ends before restarting
+      };
+      
+      audio.onerror = (event) => {
+        console.error('Audio playback error:', event);
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+        setError('Error playing audio response');
+        URL.revokeObjectURL(audioUrl); // Clean up
+        // Restart listening even on error (if always listening mode is on)
+        setTimeout(() => {
+          setIsInCooldown(false);
+          if (isAlwaysListeningRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch {
+              // Already started or not ready, ignore
+            }
+          }
+        }, 2000);
+      };
+      
+      audio.play().catch((err) => {
+        console.error('Error playing audio:', err);
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+        setError('Error playing audio response');
+        URL.revokeObjectURL(audioUrl);
+        // Fallback to browser TTS if audio play fails
+        // Note: We don't have the text here, so we'll just restart listening
+        setTimeout(() => {
+          setIsInCooldown(false);
+          if (isAlwaysListeningRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch {
+              // Already started or not ready, ignore
+            }
+          }
+        }, 2000);
+      });
+    } catch (err) {
+      console.error('Error processing audio:', err);
+      setIsSpeaking(false);
+      currentAudioRef.current = null;
+      setError('Error processing audio response');
+      // Restart listening on error
+      setTimeout(() => {
+        setIsInCooldown(false);
+        if (isAlwaysListeningRef.current && recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch {
+            // Already started or not ready, ignore
+          }
+        }
+      }, 2000);
+    }
+  };
+
   const speakText = (text: string) => {
     if (!synthesisRef.current) return;
 
@@ -446,9 +556,9 @@ const VoiceChatPage = () => {
       utterance.voice = robotVoiceRef.current;
     }
     
-    // Adjust for cute robot voice: slightly faster, higher pitch
-    utterance.rate = 1.1; // Slightly faster for robot-like speech
-    utterance.pitch = 1.3; // Higher pitch for cute robot sound
+    // Adjust for natural-sounding robot voice: normal speed, slightly higher pitch
+    utterance.rate = 1.0; // Normal speed for natural flow
+    utterance.pitch = 1.1; // Slightly higher pitch for robot character, but more natural
     utterance.volume = 1.0;
 
     utterance.onstart = () => {
