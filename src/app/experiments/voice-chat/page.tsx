@@ -586,6 +586,12 @@ const VoiceChatPage = () => {
           .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
           .withFaceExpressions();
 
+        // Clear canvas and draw bounding boxes
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
         if (detections.length > 0) {
           const expressions = detections[0].expressions;
           
@@ -608,6 +614,27 @@ const VoiceChatPage = () => {
           } else {
             setEmotion(null);
             setEmotionConfidence(0);
+          }
+
+          // Draw bounding boxes for all detected faces
+          if (ctx) {
+            detections.forEach((detection) => {
+              const box = detection.detection.box;
+              
+              // Draw bounding box
+              ctx.strokeStyle = '#00ff00';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(box.x, box.y, box.width, box.height);
+              
+              // Draw confidence label
+              ctx.fillStyle = '#00ff00';
+              ctx.font = '12px Arial';
+              ctx.fillText(
+                `${Math.round(detection.detection.score * 100)}%`,
+                box.x,
+                box.y - 5
+              );
+            });
           }
         } else {
           setEmotion(null);
@@ -945,7 +972,13 @@ const VoiceChatPage = () => {
             />
             <canvas
               ref={canvasRef}
-              className="hidden"
+              className={`absolute top-0 left-0 rounded-lg pointer-events-none ${
+                isCameraActive ? 'w-48 h-36' : 'hidden'
+              }`}
+              style={{
+                objectFit: 'cover',
+                imageRendering: 'auto'
+              }}
             />
           </div>
         </div>
