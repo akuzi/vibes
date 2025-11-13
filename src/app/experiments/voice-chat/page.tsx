@@ -109,6 +109,7 @@ const VoiceChatPage = () => {
       recognition.lang = 'en-US';
 
       recognition.onstart = () => {
+        console.log('Speech recognition started successfully');
         setIsListening(true);
         setError(null);
         currentTranscriptRef.current = '';
@@ -252,9 +253,10 @@ const VoiceChatPage = () => {
         setIsListening(false);
         if (event.error === 'no-speech') {
           // Don't show error for no-speech in continuous mode, just restart
-          if (isAlwaysListening && recognitionRef.current) {
+          if (isAlwaysListeningRef.current && recognitionRef.current) {
             setTimeout(() => {
               try {
+                console.log('Restarting recognition after no-speech error');
                 recognitionRef.current?.start();
               } catch {
                 // Already started, ignore
@@ -332,9 +334,20 @@ const VoiceChatPage = () => {
       if (isAlwaysListening) {
         setTimeout(() => {
           try {
+            console.log('Auto-starting speech recognition...');
             recognition.start();
+            console.log('Speech recognition started');
           } catch (e) {
-            console.log('Could not auto-start recognition:', e);
+            console.error('Could not auto-start recognition:', e);
+            // Try again after a delay
+            setTimeout(() => {
+              try {
+                recognition.start();
+                console.log('Speech recognition started on retry');
+              } catch (retryErr) {
+                console.error('Retry failed:', retryErr);
+              }
+            }, 1000);
           }
         }, 500);
       }
@@ -420,11 +433,16 @@ const VoiceChatPage = () => {
     }
   }, []);
 
-  // Auto-start camera when models are loaded
+  // Auto-start camera when models are loaded (with delay to avoid mic permission conflicts)
   useEffect(() => {
     if (modelsLoaded && videoRef.current && !isCameraActive) {
-      console.log('Models loaded, auto-starting camera...');
-      startCamera();
+      console.log('Models loaded, auto-starting camera in 2 seconds...');
+      // Delay camera start to avoid conflicts with microphone permission request
+      setTimeout(() => {
+        if (videoRef.current && !isCameraActive) {
+          startCamera();
+        }
+      }, 2000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelsLoaded]);
@@ -523,22 +541,6 @@ const VoiceChatPage = () => {
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
-    setIsCameraActive(false);
-    setEmotion(null);
-    setEmotionConfidence(0);
-  };
 
   const startEmotionDetection = () => {
     if (!modelsLoaded) {
@@ -622,6 +624,8 @@ const VoiceChatPage = () => {
 
   const handleUserMessage = async (text: string) => {
     if (!text.trim()) return;
+
+    console.log('Processing user message:', text);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -897,7 +901,7 @@ const VoiceChatPage = () => {
         </Link>
         <div>
           <h1 className="text-xl font-bold">AI Voice Chat</h1>
-          <p className="text-xs text-gray-400">Talk to me and i'll respond</p>
+          <p className="text-xs text-gray-400">Talk to me and I&apos;ll respond</p>
         </div>
         <button
           onClick={clearConversation}
