@@ -33,6 +33,7 @@ const VoiceChatPage = () => {
   useEffect(() => {
     // Check browser support
     if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
       const SpeechSynthesis = window.speechSynthesis;
 
@@ -200,7 +201,7 @@ const VoiceChatPage = () => {
             setTimeout(() => {
               try {
                 recognitionRef.current?.start();
-              } catch (e) {
+              } catch {
                 // Already started, ignore
               }
             }, 100);
@@ -228,7 +229,7 @@ const VoiceChatPage = () => {
                 if (!processing && !speaking) {
                   try {
                     recognitionRef.current?.start();
-                  } catch (e) {
+                  } catch {
                     // Already started or error, ignore
                   }
                 }
@@ -286,6 +287,7 @@ const VoiceChatPage = () => {
         clearTimeout(silenceTimeoutRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update refs when state changes
@@ -305,7 +307,7 @@ const VoiceChatPage = () => {
       setTimeout(() => {
         try {
           recognitionRef.current?.start();
-        } catch (e) {
+        } catch {
           // Already started, ignore
         }
       }, 100);
@@ -376,7 +378,7 @@ const VoiceChatPage = () => {
         setTimeout(() => {
           try {
             recognitionRef.current?.start();
-          } catch (e) {
+          } catch {
             // Already started, ignore
           }
         }, 2000);
@@ -418,7 +420,7 @@ const VoiceChatPage = () => {
         if (isAlwaysListeningRef.current && recognitionRef.current) {
           try {
             recognitionRef.current.start();
-          } catch (e) {
+          } catch {
             // Already started or not ready, ignore
           }
         }
@@ -436,7 +438,7 @@ const VoiceChatPage = () => {
         if (isAlwaysListeningRef.current && recognitionRef.current) {
           try {
             recognitionRef.current.start();
-          } catch (e) {
+          } catch {
             // Already started or not ready, ignore
           }
         }
