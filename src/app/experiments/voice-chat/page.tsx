@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import * as faceapi from 'face-api.js';
 
 // Type definitions for browser Speech APIs
 interface SpeechRecognition extends EventTarget {
@@ -65,6 +66,10 @@ const VoiceChatPage = () => {
   const [isAlwaysListening, setIsAlwaysListening] = useState(true);
   const [currentInterimText, setCurrentInterimText] = useState<string>('');
   const [isInCooldown, setIsInCooldown] = useState(false);
+  const [emotion, setEmotion] = useState<string | null>(null);
+  const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
@@ -75,6 +80,10 @@ const VoiceChatPage = () => {
   const currentTranscriptRef = useRef<string>('');
   const robotVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Check browser support
@@ -375,8 +384,240 @@ const VoiceChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Load face-api models
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        // Use jsdelivr CDN for face-api.js models
+        // The models are from the original face-api.js repository
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/';
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+        ]);
+        setModelsLoaded(true);
+        console.log('Face-api models loaded successfully');
+      } catch (err) {
+        console.error('Error loading face-api models:', err);
+        // Try alternative CDN
+        try {
+          const ALT_MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(ALT_MODEL_URL),
+            faceapi.nets.faceExpressionNet.loadFromUri(ALT_MODEL_URL),
+          ]);
+          setModelsLoaded(true);
+          console.log('Face-api models loaded from alternative source');
+        } catch (altErr) {
+          console.error('Error loading from alternative source:', altErr);
+          setError('Failed to load emotion detection models. Please check your internet connection.');
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      loadModels();
+    }
+  }, []);
+
+  // Auto-start camera when models are loaded
+  useEffect(() => {
+    if (modelsLoaded && videoRef.current && !isCameraActive) {
+      console.log('Models loaded, auto-starting camera...');
+      startCamera();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelsLoaded]);
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+      }
+    };
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const startCamera = async () => {
+    console.log('Start camera clicked', { modelsLoaded, videoRef: !!videoRef.current });
+    
+    if (!videoRef.current) {
+      console.error('Video ref is not available');
+      setError('Video element not ready. Please refresh the page.');
+      return;
+    }
+
+    try {
+      console.log('Requesting camera access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 },
+          facingMode: 'user'
+        } 
+      });
+      
+      console.log('Camera access granted', stream);
+      streamRef.current = stream;
+      
+      const video = videoRef.current;
+      video.srcObject = stream;
+      
+      // Set up event handlers before playing
+      const handleLoadedMetadata = () => {
+        console.log('Video metadata loaded', {
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          readyState: video.readyState
+        });
+        
+        setIsCameraActive(true);
+        
+        // Start emotion detection after a short delay
+        setTimeout(() => {
+          if (modelsLoaded) {
+            startEmotionDetection();
+          } else {
+            console.warn('Models not loaded yet, will start detection when ready');
+            // Wait for models to load
+            const checkModels = setInterval(() => {
+              if (modelsLoaded) {
+                clearInterval(checkModels);
+                startEmotionDetection();
+              }
+            }, 100);
+            // Stop checking after 10 seconds
+            setTimeout(() => clearInterval(checkModels), 10000);
+          }
+        }, 500);
+      };
+
+      video.onloadedmetadata = handleLoadedMetadata;
+      
+      // Also try to play immediately
+      try {
+        await video.play();
+        console.log('Video playing');
+      } catch (playErr) {
+        console.error('Error playing video:', playErr);
+        setError('Error starting video playback');
+      }
+      
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes('Permission denied') || errorMessage.includes('NotAllowedError')) {
+        setError('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (errorMessage.includes('NotFoundError') || errorMessage.includes('no device')) {
+        setError('No camera found. Please connect a camera and try again.');
+      } else {
+        setError(`Failed to access camera: ${errorMessage}`);
+      }
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+    setIsCameraActive(false);
+    setEmotion(null);
+    setEmotionConfidence(0);
+  };
+
+  const startEmotionDetection = () => {
+    if (!modelsLoaded) {
+      console.log('Models not loaded yet');
+      return;
+    }
+    
+    if (!videoRef.current) {
+      console.log('Video ref not available');
+      return;
+    }
+    
+    if (!canvasRef.current) {
+      console.log('Canvas ref not available');
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    // Set canvas size to match video
+    if (video.videoWidth && video.videoHeight) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    } else {
+      canvas.width = 640;
+      canvas.height = 480;
+    }
+
+    console.log('Starting emotion detection', { 
+      videoWidth: video.videoWidth, 
+      videoHeight: video.videoHeight,
+      readyState: video.readyState 
+    });
+
+    const detectEmotion = async () => {
+      if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+        return;
+      }
+
+      try {
+        const detections = await faceapi
+          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceExpressions();
+
+        if (detections.length > 0) {
+          const expressions = detections[0].expressions;
+          
+          // Find the emotion with highest confidence
+          let maxEmotion = '';
+          let maxConfidence = 0;
+          
+          Object.entries(expressions).forEach(([emotionName, confidence]) => {
+            if (confidence > maxConfidence) {
+              maxConfidence = confidence;
+              maxEmotion = emotionName;
+            }
+          });
+
+          // Lower threshold to 0.2 for better detection
+          if (maxConfidence > 0.2) {
+            setEmotion(maxEmotion);
+            setEmotionConfidence(maxConfidence);
+            console.log('Emotion detected:', maxEmotion, maxConfidence);
+          } else {
+            setEmotion(null);
+            setEmotionConfidence(0);
+          }
+        } else {
+          setEmotion(null);
+          setEmotionConfidence(0);
+        }
+      } catch (err) {
+        console.error('Error detecting emotion:', err);
+      }
+    };
+
+    // Run detection every 300ms (slightly slower to reduce CPU usage)
+    detectionIntervalRef.current = setInterval(detectEmotion, 300);
   };
 
   const handleUserMessage = async (text: string) => {
@@ -656,7 +897,7 @@ const VoiceChatPage = () => {
         </Link>
         <div>
           <h1 className="text-xl font-bold">AI Voice Chat</h1>
-          <p className="text-xs text-gray-400">Talk to OpenAI</p>
+          <p className="text-xs text-gray-400">Talk to me and i'll respond</p>
         </div>
         <button
           onClick={clearConversation}
@@ -666,6 +907,45 @@ const VoiceChatPage = () => {
           Clear
         </button>
       </header>
+
+      {/* Camera View - Top Right Corner Overlay */}
+      <div className="fixed top-4 right-4 z-50">
+        <div className="flex flex-col items-end space-y-2">
+          {/* Emotion Display */}
+          {isCameraActive && (
+            <div className="flex items-center space-x-2">
+              {emotion ? (
+                <div className="flex items-center space-x-2 bg-blue-600 px-3 py-1.5 rounded-lg shadow-lg">
+                  <span className="text-sm font-bold capitalize text-white">{emotion}</span>
+                  <span className="text-xs text-blue-100">
+                    {Math.round(emotionConfidence * 100)}%
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 bg-gray-700 px-3 py-1.5 rounded-lg">
+                  <span className="text-xs text-gray-400">No face</span>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Video - Always render so ref is available */}
+          <div className="relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`rounded-lg border-2 border-gray-600 shadow-lg ${
+                isCameraActive ? 'w-48 h-36 object-cover' : 'hidden'
+              }`}
+            />
+            <canvas
+              ref={canvasRef}
+              className="hidden"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">

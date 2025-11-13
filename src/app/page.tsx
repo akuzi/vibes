@@ -108,7 +108,7 @@ export default function Home() {
                     >
                         <p>
                             <span className="text-blue-400">[08]</span>
-                            <span className="text-white ml-4">AI Voice Chat</span>
+                            <span className="text-white ml-4">AI Voice Chat + Emotion Detection</span>
                         </p>
                     </Link>
                 </div>
