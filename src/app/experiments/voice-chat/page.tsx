@@ -3,6 +3,51 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 
+// Type definitions for browser Speech APIs
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognition;
+}
+
 interface Message {
   id: string;
   text: string;
@@ -34,10 +79,10 @@ const VoiceChatPage = () => {
     // Check browser support
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognitionConstructor = (window.SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionConstructor | undefined;
       const SpeechSynthesis = window.speechSynthesis;
 
-      if (!SpeechRecognition) {
+      if (!SpeechRecognitionConstructor) {
         setError('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
         return;
       }
@@ -48,7 +93,7 @@ const VoiceChatPage = () => {
       }
 
       // Initialize speech recognition
-      const recognition = new SpeechRecognition();
+      const recognition = new SpeechRecognitionConstructor();
       recognition.continuous = true; // Enable continuous listening
       recognition.interimResults = true; // Enable interim results to detect when user stops speaking
       recognition.lang = 'en-US';
