@@ -79,7 +79,7 @@ const VoiceChatPage = () => {
     // Check browser support
     if (typeof window !== 'undefined') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const SpeechRecognitionConstructor = (window.SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionConstructor | undefined;
+      const SpeechRecognitionConstructor = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionConstructor | undefined;
       const SpeechSynthesis = window.speechSynthesis;
 
       if (!SpeechRecognitionConstructor) {
@@ -729,14 +729,6 @@ const VoiceChatPage = () => {
     </div>
   );
 };
-
-// Extend Window interface for TypeScript
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
 
 export default VoiceChatPage;
 
