@@ -14,7 +14,8 @@ export default function Home() {
     gasgiant: "Create and customize a 3d gas giant planet. Customize the planet's atmosphere, surface, and more.",
     voxel: "Fly around a 3D voxel world of Australia generated from real elevation data. Explore the landscape based on actual topography.",
     sokoban: "A Sokoban puzzle game. Push boxes to goals using arrow keys or WASD. Complete levels by getting all boxes to their targets.",
-    'voice-chat': "Talk to OpenAI using your voice. Speak naturally, get AI responses, and hear them read back to you using text-to-speech."
+    'voice-chat': "Talk to OpenAI using your voice. Speak naturally, get AI responses, and hear them read back to you using text-to-speech.",
+    'speaking-avatar': "Watch an animated avatar lip-sync to text in real-time."
   };
 
   return (
@@ -109,6 +110,17 @@ export default function Home() {
                         <p>
                             <span className="text-blue-400">[08]</span>
                             <span className="text-white ml-4">AI Voice Chat + Emotion Detection</span>
+                        </p>
+                    </Link>
+                    <Link 
+                        href="/experiments/speaking-avatar" 
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('speaking-avatar')}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[09]</span>
+                            <span className="text-white ml-4">Speaking Avatar</span>
                         </p>
                     </Link>
                 </div>
