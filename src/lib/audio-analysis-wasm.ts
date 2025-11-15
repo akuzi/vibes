@@ -18,20 +18,12 @@ export async function initWasm(): Promise<boolean> {
     // For now, we'll compile inline from a minimal binary
     // In production, you'd compile the WAT file to WASM using wat2wasm
     
-    // Minimal WASM binary for audio analysis (compiled from WAT)
-    // This is a placeholder - in production, compile the WAT file
-    const wasmCode = new Uint8Array([
-      0x00, 0x61, 0x73, 0x6d, // WASM magic number
-      0x01, 0x00, 0x00, 0x00, // Version 1
-      // ... rest of WASM binary would go here
-    ]);
-
     // For now, use optimized JavaScript fallback
     // In production, replace with actual WASM binary
     wasmModule = createOptimizedJSModule();
     return true;
   } catch (err) {
-    console.log('WASM initialization failed, using optimized JS:', err);
+    console.error('WASM initialization failed, using optimized JS:', err);
     wasmModule = createOptimizedJSModule();
     return false;
   }
@@ -113,8 +105,8 @@ export async function getWasmModule() {
 // Helper to copy data to WASM memory
 export function copyToWasmMemory(data: Uint8Array, offset: number = 0): number {
   if (!wasmMemory) {
-    const module = wasmModule || createOptimizedJSModule();
-    wasmMemory = new Uint8Array(module.memory.buffer);
+    const wasmModuleInstance = wasmModule || createOptimizedJSModule();
+    wasmMemory = new Uint8Array(wasmModuleInstance.memory.buffer);
   }
   
   // Create a new array to ensure ArrayBuffer compatibility
