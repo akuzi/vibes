@@ -92,7 +92,7 @@ const SpeakingAvatarPage = () => {
         }
 
         // Set up import map for Three.js dependencies
-        let importMapExists = document.querySelector('script[type="importmap"]');
+        const importMapExists = document.querySelector('script[type="importmap"]');
         if (!importMapExists) {
           const script = document.createElement('script');
           script.type = 'importmap';
@@ -111,14 +111,14 @@ const SpeakingAvatarPage = () => {
         const baseUrl = window.location.origin;
         const moduleUrl = `${baseUrl}/lib/talkinghead.mjs`;
         
-        console.log('Loading TalkingHead from:', moduleUrl);
+        console.warn('Loading TalkingHead from:', moduleUrl);
         
         // Use eval to make it a truly dynamic import that Next.js won't try to resolve at build time
         let TalkingHeadModule;
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           TalkingHeadModule = await (eval(`import("${moduleUrl}")`) as Promise<any>);
-          console.log('TalkingHead module loaded successfully');
+          console.warn('TalkingHead module loaded successfully');
         } catch (importError) {
           console.error('Failed to import TalkingHead module:', importError);
           // Log more details about the error
@@ -129,12 +129,12 @@ const SpeakingAvatarPage = () => {
           // Try fetching first to see if the file exists
           try {
             const response = await fetch(moduleUrl);
-            console.log('Module fetch response status:', response.status, response.statusText);
+            console.warn('Module fetch response status:', response.status, response.statusText);
             if (!response.ok) {
               throw new Error(`Failed to fetch module: ${response.status} ${response.statusText}`);
             }
             const text = await response.text();
-            console.log('Module file exists. First 200 chars:', text.substring(0, 200));
+            console.warn('Module file exists. First 200 chars:', text.substring(0, 200));
           } catch (fetchError) {
             console.error('Failed to fetch module file:', fetchError);
           }
@@ -185,7 +185,7 @@ const SpeakingAvatarPage = () => {
               head.controls.enableZoom = false;
               head.controls.enablePan = false;
               
-              console.log('Camera adjusted - position:', head.camera.position, 'target:', head.controls.target);
+              console.warn('Camera adjusted - position:', head.camera.position, 'target:', head.controls.target);
               cameraAdjusted = true;
             }
           };
@@ -215,7 +215,7 @@ const SpeakingAvatarPage = () => {
           
           if (isMounted) {
             setAvatarLoaded(true);
-            console.log('Default avatar loaded successfully');
+            console.warn('Default avatar loaded successfully');
           }
         } catch (avatarError) {
           console.error('Failed to load default avatar:', avatarError);
@@ -247,9 +247,10 @@ const SpeakingAvatarPage = () => {
           if (typeof talkingHeadRef.current.destroy === 'function') {
             talkingHeadRef.current.destroy();
           }
-          // Clear the container
-          if (mountRef.current) {
-            mountRef.current.innerHTML = '';
+          // Clear the container - capture ref value to avoid stale closure
+          const mountElement = mountRef.current;
+          if (mountElement) {
+            mountElement.innerHTML = '';
           }
         } catch (cleanupError) {
           console.error('Error cleaning up TalkingHead:', cleanupError);
@@ -259,14 +260,6 @@ const SpeakingAvatarPage = () => {
     };
   }, []);
 
-  // Estimate speech duration based on text length
-  // Average speaking rate is about 150 words per minute = 2.5 words per second
-  // Average word length is about 5 characters
-  const estimateSpeechDuration = (text: string): number => {
-    const words = text.trim().split(/\s+/).filter(w => w.length > 0);
-    const wordsPerSecond = 2.5; // Average speaking rate
-    return (words.length / wordsPerSecond) * 1000; // Return in milliseconds
-  };
 
   // Speak text using TalkingHead
   const speakText = async () => {
@@ -305,7 +298,6 @@ const SpeakingAvatarPage = () => {
       // Split text into sentences (ending with . ! ?)
       const sentenceRegex = /[.!?]+/g;
       const sentences = textToSpeak.split(sentenceRegex).filter(s => s.trim().length > 0);
-      const sentenceEndings = textToSpeak.match(sentenceRegex) || [];
       
       // Process each sentence separately with pauses between them
       const allWords: string[] = [];
