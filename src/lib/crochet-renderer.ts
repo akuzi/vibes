@@ -4,9 +4,7 @@ import {
   Stitch,
   StitchInstruction,
   StitchType,
-  STITCH_DIMENSIONS,
   drawStitch,
-  drawStitchRealistic,
 } from './crochet-stitches';
 import { CrochetPattern } from './crochet-patterns';
 
@@ -17,7 +15,7 @@ export function buildStitchesFromPattern(
   canvasHeight: number
 ): Stitch[] {
   const stitches: Stitch[] = [];
-  let stitchId = 0;
+  const stitchId = 0;
 
   if (pattern.workInRound) {
     // In-the-round layout (circular/spiral from center)
@@ -39,7 +37,6 @@ function buildFlatWork(
   startId: number
 ) {
   let stitchId = startId;
-  const paddingX = 40;
   const paddingY = 60;
   const stitchSpacing = 20; // Horizontal spacing between stitch nodes
   const rowHeight = 35; // Vertical spacing between rows
@@ -439,7 +436,7 @@ function findStitchBelow(stitches: Stitch[], currentStitch: Stitch): Stitch | nu
 }
 
 // Draw worked-into connection (vertical connection to stitch below)
-function drawWorkedIntoConnection(
+function _drawWorkedIntoConnection(
   ctx: CanvasRenderingContext2D,
   baseStitch: Stitch,
   workingStitch: Stitch
@@ -502,7 +499,7 @@ function drawWorkedIntoConnection(
 }
 
 // Draw stitch as a node (sphere in 3D, circle in 2D)
-function drawStitchNode(
+function _drawStitchNode(
   ctx: CanvasRenderingContext2D,
   stitch: Stitch
 ) {
@@ -564,7 +561,7 @@ function drawStitchNode(
 }
 
 // Draw yarn connection between adjacent stitches - THICK and connected
-function drawYarnConnection(
+function _drawYarnConnection(
   ctx: CanvasRenderingContext2D,
   stitch1: Stitch,
   stitch2: Stitch

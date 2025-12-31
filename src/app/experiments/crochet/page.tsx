@@ -209,7 +209,7 @@ const CrochetPage = () => {
   const formatRowInstructions = (row: typeof selectedPattern.rows[0]): string => {
     const parts: string[] = [];
 
-    row.forEach((instruction, idx) => {
+    row.forEach((instruction) => {
       const abbrev = instruction.type;
       const count = instruction.count;
 

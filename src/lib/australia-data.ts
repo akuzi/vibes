@@ -223,7 +223,7 @@ export function generateStackedVoxels(elevation: number): number {
 export async function generateAustraliaVoxelData(): Promise<VoxelData[]> {
   const voxels: VoxelData[] = [];
   
-  console.log('Generating Australia voxel data with fallback elevation model...');
+  console.warn('Generating Australia voxel data with fallback elevation model...');
   
   // Track voxel distribution by region
   const regionCounts = {
@@ -275,10 +275,10 @@ export async function generateAustraliaVoxelData(): Promise<VoxelData[]> {
     }
   }
   
-  console.log(`Generated ${voxels.length} land voxels for Australia (ocean filtered out)`);
-  console.log('Region distribution:', regionCounts);
-  console.log('Data bounds - Lat:', AUSTRALIA_BOUNDS.south, 'to', AUSTRALIA_BOUNDS.north);
-  console.log('Data bounds - Lon:', AUSTRALIA_BOUNDS.west, 'to', AUSTRALIA_BOUNDS.east);
+  console.warn(`Generated ${voxels.length} land voxels for Australia (ocean filtered out)`);
+  console.warn('Region distribution:', regionCounts);
+  console.warn('Data bounds - Lat:', AUSTRALIA_BOUNDS.south, 'to', AUSTRALIA_BOUNDS.north);
+  console.warn('Data bounds - Lon:', AUSTRALIA_BOUNDS.west, 'to', AUSTRALIA_BOUNDS.east);
   
   return voxels;
 }

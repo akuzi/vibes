@@ -554,7 +554,7 @@ function parseColor(color: string): { r: number; g: number; b: number } {
 }
 
 // Helper: Adjust color brightness
-function adjustColor(color: string, amount: number): string {
+function _adjustColor(color: string, amount: number): string {
   const { r, g, b } = parseColor(color);
   const newR = Math.max(0, Math.min(255, r + amount));
   const newG = Math.max(0, Math.min(255, g + amount));
@@ -742,8 +742,7 @@ export function drawMagicRingRealistic(
 
 // Realistic increase/decrease
 export function drawIncreaseRealistic(ctx: CanvasRenderingContext2D, stitch: Stitch) {
-  const { x, y, color, animationProgress } = stitch;
-  const size = 7;
+  const { x, animationProgress } = stitch;
   const spacing = 6;
 
   // Two stitches side by side
