@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Pokemon {
   id: number;
@@ -194,11 +195,11 @@ export default function PokemonCatchingGame() {
     }, 1000);
 
     return () => clearInterval(timerInterval);
-  }, [gameStarted, timeLeft, score, highScores]);
+  }, [gameStarted, timeLeft, score, highScores, isTopScore]);
 
   // Play pokeball throw sound (on every tap)
   const playThrowSound = () => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioContext = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
@@ -217,7 +218,7 @@ export default function PokemonCatchingGame() {
 
   // Play capture success sound
   const playCaptureSound = () => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioContext = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const gainNode = audioContext.createGain();
     gainNode.connect(audioContext.destination);
     gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
@@ -521,7 +522,7 @@ export default function PokemonCatchingGame() {
             textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
             textAlign: 'center',
           }}>
-            Click "Start Game" to begin catching Pokemon! 🎯
+            Click &quot;Start Game&quot; to begin catching Pokemon! 🎯
           </div>
         )}
 
@@ -559,21 +560,22 @@ export default function PokemonCatchingGame() {
               onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
             >
               <div style={{ position: 'relative' }}>
-                <img
+                <Image
                   src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.pokedexId}.png`}
                   alt={pokemon.name}
+                  width={100}
+                  height={100}
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
                   onContextMenu={(e) => e.preventDefault()}
                   style={{
-                    width: '100px',
-                    height: '100px',
                     filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))',
                     imageRendering: 'auto',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
                     pointerEvents: 'none',
                   }}
+                  unoptimized
                 />
                 {/* Rarity Badge */}
                 <div style={{
@@ -652,14 +654,15 @@ export default function PokemonCatchingGame() {
                     minHeight: '50px',
                     marginBottom: '4px'
                   }}>
-                    <img
+                    <Image
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonType?.pokedexId}.png`}
                       alt={name}
+                      width={50}
+                      height={50}
                       style={{
-                        width: '50px',
-                        height: '50px',
                         imageRendering: 'auto',
                       }}
+                      unoptimized
                     />
                   </div>
                   <div style={{ fontSize: '11px', marginTop: '4px', textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
@@ -893,7 +896,7 @@ export default function PokemonCatchingGame() {
               color: '#333',
               textAlign: 'center',
             }}>
-              {selectedEntry.name}'s Collection
+              {selectedEntry.name}&apos;s Collection
             </h2>
             <p style={{
               textAlign: 'center',
@@ -922,15 +925,16 @@ export default function PokemonCatchingGame() {
                       borderRadius: '8px',
                     }}
                   >
-                    <img
+                    <Image
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonData.pokedexId}.png`}
                       alt={pokemonName}
+                      width={80}
+                      height={80}
                       style={{
-                        width: '80px',
-                        height: '80px',
                         margin: '0 auto',
                         display: 'block'
                       }}
+                      unoptimized
                     />
                     <div style={{
                       fontSize: '12px',
