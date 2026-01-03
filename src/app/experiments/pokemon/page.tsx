@@ -175,27 +175,30 @@ export default function PokemonCatchingGame() {
   // Timer countdown
   useEffect(() => {
     if (!gameStarted) return;
-    if (timeLeft <= 0) {
-      setGameStarted(false);
-      setActivePokemon([]);
-
-      // Check if it's a high score
-      if (isTopScore(score)) {
-        setMessage('🎉 New High Score! Enter your name!');
-        setShowNameInput(true);
-      } else {
-        setMessage('⏰ Time\'s up! Final score: ' + score);
-        setTimeout(() => setMessage(''), 3000);
-      }
-      return;
-    }
 
     const timerInterval = setInterval(() => {
       setTimeLeft(prev => prev - 1);
     }, 1000);
 
     return () => clearInterval(timerInterval);
-  }, [gameStarted, timeLeft, score, highScores, isTopScore]);
+  }, [gameStarted]);
+
+  // Handle game over when timer reaches 0
+  useEffect(() => {
+    if (!gameStarted || timeLeft > 0) return;
+
+    setGameStarted(false);
+    setActivePokemon([]);
+
+    // Check if it's a high score
+    if (isTopScore(score)) {
+      setMessage('🎉 New High Score! Enter your name!');
+      setShowNameInput(true);
+    } else {
+      setMessage('⏰ Time\'s up! Final score: ' + score);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  }, [gameStarted, timeLeft, score, highScores]);
 
   // Play pokeball throw sound (on every tap)
   const playThrowSound = () => {
