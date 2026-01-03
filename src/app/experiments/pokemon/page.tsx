@@ -91,12 +91,22 @@ export default function PokemonCatchingGame() {
   const [selectedEntry, setSelectedEntry] = useState<HighScoreEntry | null>(null);
   const gameAreaRef = React.useRef<HTMLDivElement>(null);
 
-  // Load high scores from localStorage on mount
+  // Load high scores from API on mount
   useEffect(() => {
-    const saved = localStorage.getItem('pokemonHighScores');
-    if (saved) {
-      setHighScores(JSON.parse(saved));
-    }
+    const fetchHighScores = async () => {
+      try {
+        const response = await fetch('/api/pokemon-high-scores');
+        const data = await response.json();
+        if (data.highScores) {
+          setHighScores(data.highScores);
+        }
+      } catch (error) {
+        console.error('Failed to load high scores:', error);
+        // Fallback to empty array on error
+        setHighScores([]);
+      }
+    };
+    fetchHighScores();
   }, []);
 
   // Prevent force-click/Look Up on macOS
@@ -283,7 +293,7 @@ export default function PokemonCatchingGame() {
   };
 
   // Save high score
-  const saveHighScore = (name: string) => {
+  const saveHighScore = async (name: string) => {
     const newEntry: HighScoreEntry = {
       name: name || 'Anonymous',
       score: score,
@@ -291,22 +301,37 @@ export default function PokemonCatchingGame() {
       caughtPokemon: caughtPokemon
     };
 
-    const updatedScores = [...highScores, newEntry]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
+    try {
+      const response = await fetch('/api/pokemon-high-scores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newEntry),
+      });
 
-    setHighScores(updatedScores);
-    localStorage.setItem('pokemonHighScores', JSON.stringify(updatedScores));
-    setShowNameInput(false);
-    setPlayerName('');
-    setMessage('🏆 High score saved! Check the leaderboard!');
-    setTimeout(() => setMessage(''), 3000);
+      const data = await response.json();
+      
+      if (data.success && data.highScores) {
+        setHighScores(data.highScores);
+        setShowNameInput(false);
+        setPlayerName('');
+        setMessage('🏆 High score saved! Check the leaderboard!');
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        throw new Error(data.error || 'Failed to save high score');
+      }
+    } catch (error) {
+      console.error('Failed to save high score:', error);
+      setMessage('❌ Failed to save high score. Please try again.');
+      setTimeout(() => setMessage(''), 3000);
+    }
   };
 
   // Handle name submission
-  const handleNameSubmit = () => {
+  const handleNameSubmit = async () => {
     if (playerName.trim()) {
-      saveHighScore(playerName.trim());
+      await saveHighScore(playerName.trim());
     }
   };
 
