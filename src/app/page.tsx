@@ -16,7 +16,8 @@ export default function Home() {
     sokoban: "A Sokoban puzzle game. Push boxes to goals using arrow keys or WASD. Complete levels by getting all boxes to their targets.",
     'voice-chat': "Talk to OpenAI using your voice. Speak naturally, get AI responses, and hear them read back to you using text-to-speech.",
     'speaking-avatar': "Watch an animated avatar lip-sync to text in real-time.",
-    crochet: "Create and animate crochet patterns stitch-by-stitch. Watch cute amigurumi animals and patterns come to life with realistic crochet stitches."
+    crochet: "Create and animate crochet patterns stitch-by-stitch. Watch cute amigurumi animals and patterns come to life with realistic crochet stitches.",
+    pokemon: "Catch Pokemon as they appear on screen! Click on them before they escape and build your Pokemon collection. A fun game for kids!"
   };
 
   return (
@@ -133,6 +134,17 @@ export default function Home() {
                         <p>
                             <span className="text-blue-400">[10]</span>
                             <span className="text-white ml-4">Crochet Simulator</span>
+                        </p>
+                    </Link>
+                    <Link
+                        href="/experiments/pokemon"
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('pokemon')}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[11]</span>
+                            <span className="text-white ml-4">Pokemon Catching Adventure</span>
                         </p>
                     </Link>
                 </div>
