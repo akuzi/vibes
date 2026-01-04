@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Pokemon {
   id: number;
@@ -391,7 +392,7 @@ export default function PokemonCatchingGame() {
       }
       messageTimeoutRef.current = setTimeout(() => setMessage(''), 3000);
     }
-  }, [gameStarted, timeLeft, score, highScores]);
+  }, [gameStarted, timeLeft, score, highScores, isTopScore]);
 
   // Play pokeball throw sound (on every tap)
   const playThrowSound = () => {
@@ -943,7 +944,7 @@ export default function PokemonCatchingGame() {
               onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
             >
               <div style={{ position: 'relative' }}>
-                <img
+                <Image
                   src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.pokedexId}.png`}
                   alt={pokemon.name}
                   width={100}
@@ -951,7 +952,7 @@ export default function PokemonCatchingGame() {
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
                   onContextMenu={(e) => e.preventDefault()}
-                  crossOrigin="anonymous"
+                  unoptimized
                   style={{
                     filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))',
                     imageRendering: 'auto',
@@ -1009,7 +1010,7 @@ export default function PokemonCatchingGame() {
             onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1) rotate(0deg)'}
           >
             <div style={{ position: 'relative' }}>
-              <img
+              <Image
                 src={ball.sprite}
                 alt={BALL_TYPES[ball.ballType].name}
                 width={40 * ball.sizeMultiplier}
@@ -1017,7 +1018,7 @@ export default function PokemonCatchingGame() {
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 onContextMenu={(e) => e.preventDefault()}
-                crossOrigin="anonymous"
+                unoptimized
                 style={{
                   filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3)) brightness(1.1)',
                   imageRendering: 'auto',
@@ -1052,12 +1053,12 @@ export default function PokemonCatchingGame() {
               zIndex: 10000,
             }}
           >
-            <img
+            <Image
               src={BALL_TYPES[currentBallType].sprite}
               alt={BALL_TYPES[currentBallType].name}
               width={40 * BALL_TYPES[currentBallType].sizeMultiplier}
               height={40 * BALL_TYPES[currentBallType].sizeMultiplier}
-              crossOrigin="anonymous"
+              unoptimized
               style={{
                 filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.5))',
                 imageRendering: 'auto',
@@ -1118,12 +1119,12 @@ export default function PokemonCatchingGame() {
                     minHeight: '50px',
                     marginBottom: '4px'
                   }}>
-                    <img
+                    <Image
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonType?.pokedexId}.png`}
                       alt={name}
                       width={50}
                       height={50}
-                      crossOrigin="anonymous"
+                      unoptimized
                       style={{
                         imageRendering: 'auto',
                       }}
@@ -1399,12 +1400,12 @@ export default function PokemonCatchingGame() {
                       boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                     }}
                   >
-                    <img
+                    <Image
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonData.pokedexId}.png`}
                       alt={pokemonName}
                       width={80}
                       height={80}
-                      crossOrigin="anonymous"
+                      unoptimized
                       style={{
                         margin: '0 auto',
                         display: 'block'
