@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 
 interface Pokemon {
   id: number;
@@ -17,6 +16,46 @@ interface Pokemon {
   rarity: 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
   basePoints: number;
 }
+
+type BallType = 'poke-ball' | 'great-ball' | 'ultra-ball' | 'luxury-ball' | 'master-ball';
+
+interface PowerUpBall {
+  id: number;
+  ballType: BallType;
+  x: number;
+  y: number;
+  speed: number;
+  sizeMultiplier: number;
+  sprite: string;
+}
+
+const BALL_TYPES: Record<BallType, { sizeMultiplier: number; sprite: string; name: string }> = {
+  'poke-ball': {
+    sizeMultiplier: 1,
+    sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
+    name: 'Poke Ball'
+  },
+  'great-ball': {
+    sizeMultiplier: 1.5,
+    sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',
+    name: 'Great Ball'
+  },
+  'ultra-ball': {
+    sizeMultiplier: 2,
+    sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png',
+    name: 'Ultra Ball'
+  },
+  'luxury-ball': {
+    sizeMultiplier: 2.5,
+    sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/luxury-ball.png',
+    name: 'Luxury Ball'
+  },
+  'master-ball': {
+    sizeMultiplier: 3,
+    sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
+    name: 'Master Ball'
+  },
+};
 
 const POKEMON_TYPES = [
   // Common Pokemon (10 points)
@@ -89,7 +128,65 @@ export default function PokemonCatchingGame() {
   const [showNameInput, setShowNameInput] = useState(false);
   const [playerName, setPlayerName] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<HighScoreEntry | null>(null);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [activePowerUpBalls, setActivePowerUpBalls] = useState<PowerUpBall[]>([]);
+  const [currentBallType, setCurrentBallType] = useState<BallType>('poke-ball');
+  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const gameAreaRef = React.useRef<HTMLDivElement>(null);
+
+  // Create a single AudioContext to reuse (performance optimization)
+  const audioContextRef = React.useRef<AudioContext | null>(null);
+
+  // Store message timeout to prevent premature clearing
+  const messageTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize AudioContext once
+  useEffect(() => {
+    audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  // Preload all Pokemon images and ball sprites on mount
+  useEffect(() => {
+    const preloadImages = async () => {
+      // Preload all Pokemon images
+      const pokemonImagePromises = POKEMON_TYPES.map((pokemon) => {
+        return new Promise((resolve, reject) => {
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.pokedexId}.png`;
+        });
+      });
+
+      // Preload all ball sprites
+      const ballImagePromises = Object.values(BALL_TYPES).map((ball) => {
+        return new Promise((resolve, reject) => {
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = ball.sprite;
+        });
+      });
+
+      try {
+        await Promise.all([...pokemonImagePromises, ...ballImagePromises]);
+        setImagesLoaded(true);
+      } catch (error) {
+        console.error('Failed to preload some images:', error);
+        // Still mark as loaded even if some images failed
+        setImagesLoaded(true);
+      }
+    };
+
+    preloadImages();
+  }, []);
 
   // Load high scores from API on mount
   useEffect(() => {
@@ -128,6 +225,42 @@ export default function PokemonCatchingGame() {
     };
   }, []);
 
+  // Track mouse position for custom cursor
+  useEffect(() => {
+    const gameArea = gameAreaRef.current;
+    if (!gameArea) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = gameArea.getBoundingClientRect();
+      setCursorPosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    };
+
+    const handleMouseEnter = (e: MouseEvent) => {
+      const rect = gameArea.getBoundingClientRect();
+      setCursorPosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    };
+
+    const handleMouseLeave = () => {
+      setCursorPosition(null);
+    };
+
+    gameArea.addEventListener('mousemove', handleMouseMove);
+    gameArea.addEventListener('mouseenter', handleMouseEnter);
+    gameArea.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      gameArea.removeEventListener('mousemove', handleMouseMove);
+      gameArea.removeEventListener('mouseenter', handleMouseEnter);
+      gameArea.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
   // Spawn a new Pokemon
   const spawnPokemon = useCallback(() => {
     const randomType = POKEMON_TYPES[Math.floor(Math.random() * POKEMON_TYPES.length)];
@@ -150,6 +283,24 @@ export default function PokemonCatchingGame() {
     setActivePokemon(prev => [...prev, newPokemon]);
   }, []);
 
+  // Spawn a power-up ball
+  const spawnPowerUpBall = useCallback(() => {
+    const ballTypes: BallType[] = ['great-ball', 'ultra-ball', 'luxury-ball', 'master-ball'];
+    const randomBallType = ballTypes[Math.floor(Math.random() * ballTypes.length)];
+    const ballConfig = BALL_TYPES[randomBallType];
+
+    const newPowerUpBall: PowerUpBall = {
+      id: Date.now() + Math.random(),
+      ballType: randomBallType,
+      x: 95, // Start from the right side of screen
+      y: Math.random() * 60 + 10, // 10-70% of screen height
+      speed: 1.5, // Medium speed
+      sizeMultiplier: ballConfig.sizeMultiplier,
+      sprite: ballConfig.sprite,
+    };
+    setActivePowerUpBalls(prev => [...prev, newPowerUpBall]);
+  }, []);
+
   // Game loop - spawn Pokemon periodically
   useEffect(() => {
     if (!gameStarted) return;
@@ -160,6 +311,20 @@ export default function PokemonCatchingGame() {
 
     return () => clearInterval(spawnInterval);
   }, [gameStarted, spawnPokemon]);
+
+  // Game loop - spawn power-up balls periodically
+  useEffect(() => {
+    if (!gameStarted) return;
+
+    const spawnInterval = setInterval(() => {
+      // Spawn power-up balls less frequently (every 8 seconds)
+      if (Math.random() < 0.4) { // 40% chance every 8 seconds
+        spawnPowerUpBall();
+      }
+    }, 8000);
+
+    return () => clearInterval(spawnInterval);
+  }, [gameStarted, spawnPowerUpBall]);
 
   // Move Pokemon and remove if they go off screen
   useEffect(() => {
@@ -172,6 +337,21 @@ export default function PokemonCatchingGame() {
           .filter(p => p.x > -10) // Remove if off screen
       );
     }, 30); // Update every 30ms for smooth 60fps movement
+
+    return () => clearInterval(moveInterval);
+  }, [gameStarted]);
+
+  // Move power-up balls and remove if they go off screen
+  useEffect(() => {
+    if (!gameStarted) return;
+
+    const moveInterval = setInterval(() => {
+      setActivePowerUpBalls(prev =>
+        prev
+          .map(b => ({ ...b, x: b.x - b.speed }))
+          .filter(b => b.x > -10) // Remove if off screen
+      );
+    }, 30); // Update every 30ms for smooth movement
 
     return () => clearInterval(moveInterval);
   }, [gameStarted]);
@@ -206,13 +386,18 @@ export default function PokemonCatchingGame() {
       setShowNameInput(true);
     } else {
       setMessage('⏰ Time\'s up! Final score: ' + score);
-      setTimeout(() => setMessage(''), 3000);
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+      messageTimeoutRef.current = setTimeout(() => setMessage(''), 3000);
     }
   }, [gameStarted, timeLeft, score, highScores]);
 
   // Play pokeball throw sound (on every tap)
   const playThrowSound = () => {
-    const audioContext = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const audioContext = audioContextRef.current;
+    if (!audioContext) return;
+
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
@@ -231,7 +416,9 @@ export default function PokemonCatchingGame() {
 
   // Play capture success sound
   const playCaptureSound = () => {
-    const audioContext = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const audioContext = audioContextRef.current;
+    if (!audioContext) return;
+
     const gainNode = audioContext.createGain();
     gainNode.connect(audioContext.destination);
     gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
@@ -249,32 +436,196 @@ export default function PokemonCatchingGame() {
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
   };
 
-  const catchPokemon = (pokemon: Pokemon) => {
-    // Remove the caught Pokemon
-    setActivePokemon(prev => prev.filter(p => p.id !== pokemon.id));
+  const catchPokemon = (pokemon: Pokemon, event?: React.MouseEvent) => {
+    // Stop event propagation to prevent game area click
+    event?.stopPropagation();
 
-    // Add to caught collection
-    setCaughtPokemon(prev => [...prev, pokemon.name]);
+    // Play capture success sound immediately (before state updates)
+    playCaptureSound();
 
     // Calculate points based on rarity
     const pointsEarned = pokemon.basePoints;
-    const newScore = score + pointsEarned;
-    setScore(newScore);
+
+    // Batch all state updates together
+    React.startTransition(() => {
+      // Remove the caught Pokemon
+      setActivePokemon(prev => prev.filter(p => p.id !== pokemon.id));
+
+      // Add to caught collection
+      setCaughtPokemon(prev => [...prev, pokemon.name]);
+
+      // Update score
+      setScore(prev => prev + pointsEarned);
+
+      // Show message with rarity badge
+      const rarityEmoji = {
+        common: '⚪',
+        uncommon: '🟢',
+        rare: '🔵',
+        legendary: '🟡',
+        mythic: '💎'
+      };
+
+      setMessage(`${rarityEmoji[pokemon.rarity]} You caught ${pokemon.name}! +${pointsEarned} points!`);
+
+      // Clear any existing timeout to prevent premature message clearing
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+      messageTimeoutRef.current = setTimeout(() => setMessage(''), 2000);
+    });
+  };
+
+  const catchPowerUpBall = (ball: PowerUpBall, event?: React.MouseEvent) => {
+    // Stop event propagation to prevent game area click
+    event?.stopPropagation();
 
     // Play capture success sound
     playCaptureSound();
 
-    // Show message with rarity badge
-    const rarityEmoji = {
-      common: '⚪',
-      uncommon: '🟢',
-      rare: '🔵',
-      legendary: '🟡',
-      mythic: '💎'
-    };
+    // Batch all state updates together
+    React.startTransition(() => {
+      // Remove the caught power-up ball
+      setActivePowerUpBalls(prev => prev.filter(b => b.id !== ball.id));
 
-    setMessage(`${rarityEmoji[pokemon.rarity]} You caught ${pokemon.name}! +${pointsEarned} points!`);
-    setTimeout(() => setMessage(''), 2000);
+      // Update current ball type
+      setCurrentBallType(ball.ballType);
+
+      // Show message
+      const ballName = BALL_TYPES[ball.ballType].name;
+      setMessage(`⚡ You got a ${ballName}! Cursor size: ${ball.sizeMultiplier}x`);
+
+      // Clear any existing timeout to prevent premature message clearing
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+      messageTimeoutRef.current = setTimeout(() => setMessage(''), 2000);
+    });
+  };
+
+  // Circle-Rectangle collision detection
+  const circleRectangleCollision = (
+    circleX: number,
+    circleY: number,
+    radius: number,
+    rectX: number,
+    rectY: number,
+    rectWidth: number,
+    rectHeight: number
+  ): boolean => {
+    // Find the closest point on the rectangle to the circle's center
+    const closestX = Math.max(rectX, Math.min(circleX, rectX + rectWidth));
+    const closestY = Math.max(rectY, Math.min(circleY, rectY + rectHeight));
+
+    // Calculate the distance from the circle's center to this closest point
+    const dx = circleX - closestX;
+    const dy = circleY - closestY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // If the distance is less than the circle's radius, they overlap
+    return distance <= radius;
+  };
+
+  // Handle clicks on the game area with cursor size-based collision detection
+  const handleGameAreaClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!gameStarted || !gameAreaRef.current) return;
+
+    playThrowSound();
+
+    const rect = gameAreaRef.current.getBoundingClientRect();
+
+    // Work in pixels for accurate collision detection
+    const clickXPixels = event.clientX - rect.left;
+    const clickYPixels = event.clientY - rect.top;
+
+    // Cursor is 40px * sizeMultiplier, so radius is 20px * sizeMultiplier * 0.85
+    // For larger balls, apply an additional 0.9 multiplier
+    const baseRadius = 20 * BALL_TYPES[currentBallType].sizeMultiplier * 0.85;
+    const cursorRadius = currentBallType === 'poke-ball' ? baseRadius : baseRadius * 0.9;
+
+    // Pokemon are 100px x 100px images
+    const pokemonWidth = 100;
+    const pokemonHeight = 100;
+
+    // Check if cursor (circle) overlaps with any Pokemon (rectangle)
+    const pokemonInRange = activePokemon.filter(pokemon => {
+      // Convert Pokemon position from percentage to pixels
+      // pokemon.x and pokemon.y represent the TOP-LEFT corner (from CSS left/top)
+      const pokemonRectX = (pokemon.x / 100) * rect.width;
+      const pokemonRectY = (pokemon.y / 100) * rect.height;
+
+      return circleRectangleCollision(
+        clickXPixels,
+        clickYPixels,
+        cursorRadius,
+        pokemonRectX,
+        pokemonRectY,
+        pokemonWidth,
+        pokemonHeight
+      );
+    });
+
+    // Catch the closest Pokemon if any are in range
+    if (pokemonInRange.length > 0) {
+      const closest = pokemonInRange.reduce((prev, curr) => {
+        // Calculate distance to center of each Pokemon for comparison
+        const prevCenterX = (prev.x / 100) * rect.width + pokemonWidth / 2;
+        const prevCenterY = (prev.y / 100) * rect.height + pokemonHeight / 2;
+        const currCenterX = (curr.x / 100) * rect.width + pokemonWidth / 2;
+        const currCenterY = (curr.y / 100) * rect.height + pokemonHeight / 2;
+
+        const prevDist = Math.sqrt((clickXPixels - prevCenterX) ** 2 + (clickYPixels - prevCenterY) ** 2);
+        const currDist = Math.sqrt((clickXPixels - currCenterX) ** 2 + (clickYPixels - currCenterY) ** 2);
+        return currDist < prevDist ? curr : prev;
+      });
+      catchPokemon(closest);
+      return; // Don't check power-up balls if we caught a Pokemon
+    }
+
+    // Power-up balls dimensions
+    const powerUpBallWidth = 40;
+    const powerUpBallHeight = 40;
+
+    // Check if cursor (circle) overlaps with any power-up balls (rectangle)
+    const ballsInRange = activePowerUpBalls.filter(ball => {
+      // Convert ball position from percentage to pixels
+      // ball.x and ball.y represent the TOP-LEFT corner (from CSS left/top)
+      const ballRectWidth = powerUpBallWidth * ball.sizeMultiplier;
+      const ballRectHeight = powerUpBallHeight * ball.sizeMultiplier;
+      const ballRectX = (ball.x / 100) * rect.width;
+      const ballRectY = (ball.y / 100) * rect.height;
+
+      return circleRectangleCollision(
+        clickXPixels,
+        clickYPixels,
+        cursorRadius,
+        ballRectX,
+        ballRectY,
+        ballRectWidth,
+        ballRectHeight
+      );
+    });
+
+    // Catch the closest power-up ball if any are in range
+    if (ballsInRange.length > 0) {
+      const closest = ballsInRange.reduce((prev, curr) => {
+        // Calculate distance to center of each ball for comparison
+        const prevWidth = powerUpBallWidth * prev.sizeMultiplier;
+        const prevHeight = powerUpBallHeight * prev.sizeMultiplier;
+        const prevCenterX = (prev.x / 100) * rect.width + prevWidth / 2;
+        const prevCenterY = (prev.y / 100) * rect.height + prevHeight / 2;
+
+        const currWidth = powerUpBallWidth * curr.sizeMultiplier;
+        const currHeight = powerUpBallHeight * curr.sizeMultiplier;
+        const currCenterX = (curr.x / 100) * rect.width + currWidth / 2;
+        const currCenterY = (curr.y / 100) * rect.height + currHeight / 2;
+
+        const prevDist = Math.sqrt((clickXPixels - prevCenterX) ** 2 + (clickYPixels - prevCenterY) ** 2);
+        const currDist = Math.sqrt((clickXPixels - currCenterX) ** 2 + (clickYPixels - currCenterY) ** 2);
+        return currDist < prevDist ? curr : prev;
+      });
+      catchPowerUpBall(closest);
+    }
   };
 
   const startGame = () => {
@@ -282,6 +633,8 @@ export default function PokemonCatchingGame() {
     setScore(0);
     setCaughtPokemon([]);
     setActivePokemon([]);
+    setActivePowerUpBalls([]);
+    setCurrentBallType('poke-ball'); // Reset to standard ball
     setMessage('');
     setTimeLeft(120); // Reset timer to 2 minutes
     spawnPokemon(); // Spawn first Pokemon immediately
@@ -290,6 +643,7 @@ export default function PokemonCatchingGame() {
   const stopGame = () => {
     setGameStarted(false);
     setActivePokemon([]);
+    setActivePowerUpBalls([]);
   };
 
   // Save high score
@@ -317,14 +671,20 @@ export default function PokemonCatchingGame() {
         setShowNameInput(false);
         setPlayerName('');
         setMessage('🏆 High score saved! Check the leaderboard!');
-        setTimeout(() => setMessage(''), 3000);
+        if (messageTimeoutRef.current) {
+          clearTimeout(messageTimeoutRef.current);
+        }
+        messageTimeoutRef.current = setTimeout(() => setMessage(''), 3000);
       } else {
         throw new Error(data.error || 'Failed to save high score');
       }
     } catch (error) {
       console.error('Failed to save high score:', error);
       setMessage('❌ Failed to save high score. Please try again.');
-      setTimeout(() => setMessage(''), 3000);
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
+      messageTimeoutRef.current = setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -345,7 +705,7 @@ export default function PokemonCatchingGame() {
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(to bottom, #87CEEB 0%, #98D8C8 100%)',
-      padding: '24px',
+      padding: '12px',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       userSelect: 'none',
       WebkitUserSelect: 'none',
@@ -353,40 +713,34 @@ export default function PokemonCatchingGame() {
       msUserSelect: 'none',
       MozUserSelect: 'none',
     }}>
-      <Link
-        href="/"
-        style={{
-          color: '#333',
-          textDecoration: 'none',
-          fontSize: '18px',
-          fontWeight: 600,
-          display: 'inline-block',
-          marginBottom: '20px'
-        }}
-      >
-        ← Back to Menu
-      </Link>
-
       <div style={{
-        textAlign: 'center',
-        marginBottom: '24px'
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '12px'
       }}>
+        <Link
+          href="/"
+          style={{
+            position: 'absolute',
+            left: 0,
+            color: '#333',
+            textDecoration: 'none',
+            fontSize: '18px',
+            fontWeight: 600,
+          }}
+        >
+          ← Back to Menu
+        </Link>
         <h1 style={{
           fontSize: '48px',
           margin: 0,
           color: '#FFF',
           textShadow: '3px 3px 6px rgba(0,0,0,0.3)'
         }}>
-          🎮 Pokemon Catching Adventure! 🎮
+          Pokemon Catch
         </h1>
-        <p style={{
-          fontSize: '20px',
-          color: '#FFF',
-          marginTop: '12px',
-          textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
-        }}>
-          Click on the Pokemon to catch them before they escape!
-        </p>
       </div>
 
       {/* Score and Controls */}
@@ -409,7 +763,7 @@ export default function PokemonCatchingGame() {
           Score: {score}
         </div>
         <div style={{
-          background: '#FFD700',
+          background: '#FFF',
           padding: '16px 32px',
           borderRadius: '12px',
           boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
@@ -420,13 +774,13 @@ export default function PokemonCatchingGame() {
           High Score: {highScores.length > 0 ? highScores[0].score : 0}
         </div>
         <div style={{
-          background: timeLeft <= 10 ? '#FF6B6B' : '#4169E1',
+          background: timeLeft <= 10 ? '#FF6B6B' : '#FFF',
           padding: '16px 32px',
           borderRadius: '12px',
           boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
           fontSize: '24px',
           fontWeight: 'bold',
-          color: '#FFF',
+          color: timeLeft <= 10 ? '#FFF' : '#333',
           minWidth: '150px',
           textAlign: 'center',
         }}>
@@ -434,22 +788,24 @@ export default function PokemonCatchingGame() {
         </div>
         <button
           onClick={gameStarted ? stopGame : startGame}
+          disabled={!imagesLoaded && !gameStarted}
           style={{
             padding: '16px 32px',
             fontSize: '20px',
             fontWeight: 'bold',
             borderRadius: '12px',
             border: 'none',
-            background: gameStarted ? '#FF4444' : '#4CAF50',
+            background: !imagesLoaded && !gameStarted ? '#999' : '#333',
             color: '#FFF',
-            cursor: 'pointer',
+            cursor: !imagesLoaded && !gameStarted ? 'not-allowed' : 'pointer',
             boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
             transition: 'transform 0.1s',
+            opacity: !imagesLoaded && !gameStarted ? 0.6 : 1,
           }}
           onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
           onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
         >
-          {gameStarted ? '⏸️ Stop Game' : '▶️ Start Game'}
+          {!imagesLoaded && !gameStarted ? '⏳ Loading...' : gameStarted ? '⏸️ Stop Game' : '▶️ Start Game'}
         </button>
         <button
           onClick={() => setShowLeaderboard(!showLeaderboard)}
@@ -459,7 +815,7 @@ export default function PokemonCatchingGame() {
             fontWeight: 'bold',
             borderRadius: '12px',
             border: 'none',
-            background: '#9C27B0',
+            background: '#333',
             color: '#FFF',
             cursor: 'pointer',
             boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
@@ -490,7 +846,7 @@ export default function PokemonCatchingGame() {
             fontWeight: 'bold',
             color: '#4CAF50',
             textAlign: 'center',
-            animation: 'bounce 0.5s ease',
+            animation: 'fadeIn 0.3s ease',
           }}>
             {message}
           </div>
@@ -515,7 +871,7 @@ export default function PokemonCatchingGame() {
         {/* Game Area */}
         <div
           ref={gameAreaRef}
-          onClick={playThrowSound}
+          onClick={handleGameAreaClick}
           onContextMenu={(e) => e.preventDefault()}
           onTouchStart={(e) => {
             // Prevent long-press behaviors on mobile
@@ -531,7 +887,7 @@ export default function PokemonCatchingGame() {
             minHeight: '500px',
             overflow: 'hidden',
             border: '4px solid rgba(255,255,255,0.6)',
-            cursor: 'url(https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png) 12 12, pointer',
+            cursor: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
             WebkitTouchCallout: 'none',
@@ -566,7 +922,6 @@ export default function PokemonCatchingGame() {
           return (
             <div
               key={pokemon.id}
-              onClick={() => catchPokemon(pokemon)}
               onContextMenu={(e) => e.preventDefault()}
               onTouchStart={(e) => {
                 // Prevent long-press on Pokemon
@@ -576,7 +931,7 @@ export default function PokemonCatchingGame() {
                 position: 'absolute',
                 left: `${pokemon.x}%`,
                 top: `${pokemon.y}%`,
-                cursor: 'pointer',
+                pointerEvents: 'none',
                 transition: 'transform 0.1s',
                 animation: 'float 2s ease-in-out infinite',
                 userSelect: 'none',
@@ -588,7 +943,7 @@ export default function PokemonCatchingGame() {
               onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
             >
               <div style={{ position: 'relative' }}>
-                <Image
+                <img
                   src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.pokedexId}.png`}
                   alt={pokemon.name}
                   width={100}
@@ -596,6 +951,7 @@ export default function PokemonCatchingGame() {
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
                   onContextMenu={(e) => e.preventDefault()}
+                  crossOrigin="anonymous"
                   style={{
                     filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))',
                     imageRendering: 'auto',
@@ -603,7 +959,6 @@ export default function PokemonCatchingGame() {
                     WebkitUserSelect: 'none',
                     pointerEvents: 'none',
                   }}
-                  unoptimized
                 />
                 {/* Rarity Badge */}
                 <div style={{
@@ -629,6 +984,87 @@ export default function PokemonCatchingGame() {
             </div>
           );
         })}
+
+        {/* Render power-up balls */}
+        {activePowerUpBalls.map(ball => (
+          <div
+            key={ball.id}
+            onContextMenu={(e) => e.preventDefault()}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+            }}
+            style={{
+              position: 'absolute',
+              left: `${ball.x}%`,
+              top: `${ball.y}%`,
+              pointerEvents: 'none',
+              transition: 'transform 0.1s',
+              animation: 'float 2s ease-in-out infinite',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+              touchAction: 'manipulation',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2) rotate(10deg)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1) rotate(0deg)'}
+          >
+            <div style={{ position: 'relative' }}>
+              <img
+                src={ball.sprite}
+                alt={BALL_TYPES[ball.ballType].name}
+                width={40 * ball.sizeMultiplier}
+                height={40 * ball.sizeMultiplier}
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
+                crossOrigin="anonymous"
+                style={{
+                  filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3)) brightness(1.1)',
+                  imageRendering: 'auto',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* Sparkle effect to indicate it's a power-up */}
+              <div style={{
+                position: 'absolute',
+                top: '-5px',
+                right: '-5px',
+                fontSize: '20px',
+                animation: 'sparkle 1s ease-in-out infinite',
+              }}>
+                ✨
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Custom Cursor */}
+        {cursorPosition && (
+          <div
+            style={{
+              position: 'absolute',
+              left: cursorPosition.x,
+              top: cursorPosition.y,
+              pointerEvents: 'none',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 10000,
+            }}
+          >
+            <img
+              src={BALL_TYPES[currentBallType].sprite}
+              alt={BALL_TYPES[currentBallType].name}
+              width={40 * BALL_TYPES[currentBallType].sizeMultiplier}
+              height={40 * BALL_TYPES[currentBallType].sizeMultiplier}
+              crossOrigin="anonymous"
+              style={{
+                filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.5))',
+                imageRendering: 'auto',
+              }}
+            />
+          </div>
+        )}
         </div>
 
         {/* Collection Display */}
@@ -682,15 +1118,15 @@ export default function PokemonCatchingGame() {
                     minHeight: '50px',
                     marginBottom: '4px'
                   }}>
-                    <Image
+                    <img
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonType?.pokedexId}.png`}
                       alt={name}
                       width={50}
                       height={50}
+                      crossOrigin="anonymous"
                       style={{
                         imageRendering: 'auto',
                       }}
-                      unoptimized
                     />
                   </div>
                   <div style={{ fontSize: '11px', marginTop: '4px', textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
@@ -775,7 +1211,7 @@ export default function PokemonCatchingGame() {
                 fontWeight: 'bold',
                 borderRadius: '8px',
                 border: 'none',
-                background: '#4CAF50',
+                background: '#333',
                 color: '#FFF',
                 cursor: 'pointer',
               }}
@@ -842,9 +1278,9 @@ export default function PokemonCatchingGame() {
                       alignItems: 'center',
                       padding: '12px 16px',
                       marginBottom: '8px',
-                      background: index < 3 ? ['#FFD700', '#C0C0C0', '#CD7F32'][index] : '#f5f5f5',
+                      background: index === 0 ? '#FFD700' : '#f5f5f5',
                       borderRadius: '8px',
-                      color: index < 3 ? '#FFF' : '#333',
+                      color: index === 0 ? '#FFF' : '#333',
                       fontWeight: 'bold',
                       cursor: 'pointer',
                       transition: 'transform 0.2s',
@@ -877,7 +1313,7 @@ export default function PokemonCatchingGame() {
                 fontWeight: 'bold',
                 borderRadius: '8px',
                 border: 'none',
-                background: '#9C27B0',
+                background: '#333',
                 color: '#FFF',
                 cursor: 'pointer',
                 marginTop: '16px',
@@ -911,7 +1347,8 @@ export default function PokemonCatchingGame() {
               background: '#FFF',
               borderRadius: '16px',
               padding: '32px',
-              maxWidth: '600px',
+              maxWidth: '1200px',
+              width: '90%',
               maxHeight: '80vh',
               overflow: 'auto',
               boxShadow: '0 8px 16px rgba(0,0,0,0.3)',
@@ -936,42 +1373,77 @@ export default function PokemonCatchingGame() {
             </p>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-              gap: '16px',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+              gap: '12px',
             }}>
-              {selectedEntry.caughtPokemon.map((pokemonName, idx) => {
+              {Object.entries(
+                selectedEntry.caughtPokemon.reduce((acc, name) => {
+                  acc[name] = (acc[name] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>)
+              )
+              .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+              .map(([pokemonName, count]) => {
                 const pokemonData = POKEMON_TYPES.find(p => p.name === pokemonName);
                 if (!pokemonData) return null;
 
                 return (
                   <div
-                    key={idx}
+                    key={pokemonName}
                     style={{
                       textAlign: 'center',
                       padding: '8px',
-                      background: '#f5f5f5',
+                      background: `linear-gradient(135deg, ${pokemonData.color} 0%, ${pokemonData.secondaryColor} 100%)`,
                       borderRadius: '8px',
+                      position: 'relative',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                     }}
                   >
-                    <Image
+                    <img
                       src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonData.pokedexId}.png`}
                       alt={pokemonName}
                       width={80}
                       height={80}
+                      crossOrigin="anonymous"
                       style={{
                         margin: '0 auto',
                         display: 'block'
                       }}
-                      unoptimized
                     />
                     <div style={{
                       fontSize: '12px',
                       fontWeight: 'bold',
-                      color: '#333',
+                      color: '#FFF',
                       marginTop: '4px',
+                      textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                     }}>
                       {pokemonName}
                     </div>
+                    <div style={{
+                      fontSize: '10px',
+                      color: '#FFF',
+                      marginTop: '2px',
+                      textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                      textTransform: 'capitalize',
+                      opacity: 0.9,
+                    }}>
+                      {pokemonData.rarity}
+                    </div>
+                    {count > 1 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '4px',
+                        right: '4px',
+                        background: 'rgba(0,0,0,0.7)',
+                        color: '#FFF',
+                        borderRadius: '12px',
+                        padding: '4px 8px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                      }}>
+                        ×{count}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -985,7 +1457,7 @@ export default function PokemonCatchingGame() {
                 fontWeight: 'bold',
                 borderRadius: '8px',
                 border: 'none',
-                background: '#4CAF50',
+                background: '#333',
                 color: '#FFF',
                 cursor: 'pointer',
                 marginTop: '24px',
@@ -1003,9 +1475,20 @@ export default function PokemonCatchingGame() {
           50% { transform: translateY(-10px); }
         }
 
-        @keyframes bounce {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); }
-          50% { transform: translate(-50%, -50%) scale(1.1); }
+        @keyframes fadeIn {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+
+        @keyframes sparkle {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+          }
+          50% {
+            opacity: 0.5;
+            transform: scale(1.3) rotate(180deg);
+          }
         }
       `}</style>
     </div>

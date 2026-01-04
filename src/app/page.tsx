@@ -144,7 +144,7 @@ export default function Home() {
                     >
                         <p>
                             <span className="text-blue-400">[11]</span>
-                            <span className="text-white ml-4">Pokemon Catching Adventure</span>
+                            <span className="text-white ml-4">Pokemon Catch</span>
                         </p>
                     </Link>
                 </div>
