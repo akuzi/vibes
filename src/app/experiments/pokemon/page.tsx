@@ -133,6 +133,7 @@ export default function PokemonCatchingGame() {
   const [activePowerUpBalls, setActivePowerUpBalls] = useState<PowerUpBall[]>([]);
   const [currentBallType, setCurrentBallType] = useState<BallType>('poke-ball');
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+  const [transformingPokemonId, setTransformingPokemonId] = useState<number | null>(null);
   const gameAreaRef = React.useRef<HTMLDivElement>(null);
 
   // Create a single AudioContext to reuse (performance optimization)
@@ -437,6 +438,30 @@ export default function PokemonCatchingGame() {
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
   };
 
+  // Get the next rarity tier for luxury ball level-up
+  const getNextRarity = (currentRarity: Pokemon['rarity']): Pokemon['rarity'] => {
+    const rarityProgression: Record<Pokemon['rarity'], Pokemon['rarity']> = {
+      common: 'uncommon',
+      uncommon: 'rare',
+      rare: 'legendary',
+      legendary: 'mythic',
+      mythic: 'mythic', // Already max level
+    };
+    return rarityProgression[currentRarity];
+  };
+
+  // Get points for a rarity tier
+  const getPointsForRarity = (rarity: Pokemon['rarity']): number => {
+    const rarityPoints: Record<Pokemon['rarity'], number> = {
+      common: 10,
+      uncommon: 20,
+      rare: 30,
+      legendary: 50,
+      mythic: 100,
+    };
+    return rarityPoints[rarity];
+  };
+
   const catchPokemon = (pokemon: Pokemon, event?: React.MouseEvent) => {
     // Stop event propagation to prevent game area click
     event?.stopPropagation();
@@ -444,9 +469,44 @@ export default function PokemonCatchingGame() {
     // Play capture success sound immediately (before state updates)
     playCaptureSound();
 
-    // Calculate points based on rarity
-    const pointsEarned = pokemon.basePoints;
+    // Check if using luxury ball for level-up
+    const isLuxuryBall = currentBallType === 'luxury-ball';
+    const upgradedRarity = isLuxuryBall ? getNextRarity(pokemon.rarity) : pokemon.rarity;
+    const didLevelUp = isLuxuryBall && upgradedRarity !== pokemon.rarity;
 
+    // Calculate points based on upgraded rarity if luxury ball was used
+    const pointsEarned = getPointsForRarity(upgradedRarity);
+
+    // If luxury ball and will level up, show transformation animation
+    if (didLevelUp) {
+      // Mark Pokemon as transforming
+      setTransformingPokemonId(pokemon.id);
+
+      // Temporarily update the Pokemon to show transformation effect
+      setActivePokemon(prev =>
+        prev.map(p => p.id === pokemon.id
+          ? { ...p, rarity: upgradedRarity, basePoints: pointsEarned }
+          : p
+        )
+      );
+
+      // Wait for transformation animation, then complete the catch
+      setTimeout(() => {
+        setTransformingPokemonId(null);
+        completeCatch(pokemon, upgradedRarity, pointsEarned, didLevelUp);
+      }, 800); // Duration of transformation animation
+    } else {
+      // Normal catch without transformation
+      completeCatch(pokemon, upgradedRarity, pointsEarned, didLevelUp);
+    }
+  };
+
+  const completeCatch = (
+    pokemon: Pokemon,
+    finalRarity: Pokemon['rarity'],
+    pointsEarned: number,
+    didLevelUp: boolean
+  ) => {
     // Batch all state updates together
     React.startTransition(() => {
       // Remove the caught Pokemon
@@ -467,13 +527,17 @@ export default function PokemonCatchingGame() {
         mythic: '💎'
       };
 
-      setMessage(`${rarityEmoji[pokemon.rarity]} You caught ${pokemon.name}! +${pointsEarned} points!`);
+      const levelUpText = didLevelUp
+        ? ` ⬆️ Leveled up to ${finalRarity.toUpperCase()}!`
+        : '';
+
+      setMessage(`${rarityEmoji[finalRarity]} You caught ${pokemon.name}!${levelUpText} +${pointsEarned} points!`);
 
       // Clear any existing timeout to prevent premature message clearing
       if (messageTimeoutRef.current) {
         clearTimeout(messageTimeoutRef.current);
       }
-      messageTimeoutRef.current = setTimeout(() => setMessage(''), 2000);
+      messageTimeoutRef.current = setTimeout(() => setMessage(''), 3000);
     });
   };
 
@@ -920,6 +984,8 @@ export default function PokemonCatchingGame() {
             mythic: '#FF00FF'
           };
 
+          const isTransforming = transformingPokemonId === pokemon.id;
+
           return (
             <div
               key={pokemon.id}
@@ -928,20 +994,21 @@ export default function PokemonCatchingGame() {
                 // Prevent long-press on Pokemon
                 e.stopPropagation();
               }}
+              className={isTransforming ? 'transforming' : ''}
               style={{
                 position: 'absolute',
                 left: `${pokemon.x}%`,
                 top: `${pokemon.y}%`,
                 pointerEvents: 'none',
                 transition: 'transform 0.1s',
-                animation: 'float 2s ease-in-out infinite',
+                animation: isTransforming ? 'levelUp 0.8s ease-in-out' : 'float 2s ease-in-out infinite',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 WebkitTouchCallout: 'none',
                 touchAction: 'manipulation',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onMouseEnter={(e) => !isTransforming && (e.currentTarget.style.transform = 'scale(1.2)')}
+              onMouseLeave={(e) => !isTransforming && (e.currentTarget.style.transform = 'scale(1)')}
             >
               <div style={{ position: 'relative' }}>
                 <Image
@@ -954,7 +1021,9 @@ export default function PokemonCatchingGame() {
                   onContextMenu={(e) => e.preventDefault()}
                   unoptimized
                   style={{
-                    filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))',
+                    filter: isTransforming
+                      ? 'drop-shadow(0 0 20px rgba(255,215,0,0.8)) brightness(1.5) saturate(1.5)'
+                      : 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))',
                     imageRendering: 'auto',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
@@ -977,10 +1046,31 @@ export default function PokemonCatchingGame() {
                   fontSize: '14px',
                   fontWeight: 'bold',
                   border: '2px solid #FFF',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                  boxShadow: isTransforming
+                    ? '0 0 15px rgba(255,215,0,0.9)'
+                    : '0 2px 4px rgba(0,0,0,0.3)',
+                  transition: 'all 0.3s ease',
                 }}>
                   {pokemon.basePoints}
                 </div>
+                {/* Level Up Indicator */}
+                {isTransforming && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    fontSize: '32px',
+                    fontWeight: 'bold',
+                    color: '#FFD700',
+                    textShadow: '0 0 10px rgba(255,215,0,1), 2px 2px 4px rgba(0,0,0,0.8)',
+                    animation: 'levelUpText 0.8s ease-in-out',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                  }}>
+                    ⬆️
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -1489,6 +1579,39 @@ export default function PokemonCatchingGame() {
           50% {
             opacity: 0.5;
             transform: scale(1.3) rotate(180deg);
+          }
+        }
+
+        @keyframes levelUp {
+          0% {
+            transform: scale(1) translateY(0px);
+          }
+          25% {
+            transform: scale(1.3) translateY(-20px);
+          }
+          50% {
+            transform: scale(0.8) translateY(0px);
+          }
+          75% {
+            transform: scale(1.2) translateY(-10px);
+          }
+          100% {
+            transform: scale(1) translateY(0px);
+          }
+        }
+
+        @keyframes levelUpText {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.5);
+          }
+          50% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.5);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.5);
           }
         }
       `}</style>
