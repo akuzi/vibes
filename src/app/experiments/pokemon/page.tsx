@@ -16,6 +16,7 @@ interface Pokemon {
   pokedexId: number;
   rarity: 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
   basePoints: number;
+  direction: 'left' | 'right'; // Direction Pokemon is moving
 }
 
 type BallType = 'poke-ball' | 'great-ball' | 'ultra-ball' | 'luxury-ball' | 'master-ball';
@@ -269,6 +270,9 @@ export default function PokemonCatchingGame() {
     const speedRange = RARITY_SPEED[randomType.rarity];
     const speed = Math.random() * (speedRange.max - speedRange.min) + speedRange.min;
 
+    // Randomly choose direction (50/50 chance)
+    const direction: 'left' | 'right' = Math.random() < 0.5 ? 'left' : 'right';
+
     const newPokemon: Pokemon = {
       id: Date.now() + Math.random(),
       name: randomType.name,
@@ -278,9 +282,10 @@ export default function PokemonCatchingGame() {
       pokedexId: randomType.pokedexId,
       rarity: randomType.rarity,
       basePoints: randomType.basePoints,
-      x: 95, // Start from the right side of screen
+      x: direction === 'right' ? 95 : -5, // Start from right or left side
       y: Math.random() * 60 + 10, // 10-70% of screen height
       speed: speed,
+      direction: direction,
     };
     setActivePokemon(prev => [...prev, newPokemon]);
   }, []);
@@ -335,8 +340,11 @@ export default function PokemonCatchingGame() {
     const moveInterval = setInterval(() => {
       setActivePokemon(prev =>
         prev
-          .map(p => ({ ...p, x: p.x - p.speed }))
-          .filter(p => p.x > -10) // Remove if off screen
+          .map(p => ({
+            ...p,
+            x: p.direction === 'right' ? p.x - p.speed : p.x + p.speed
+          }))
+          .filter(p => p.x > -10 && p.x < 105) // Remove if off either side of screen
       );
     }, 30); // Update every 30ms for smooth 60fps movement
 
@@ -1028,6 +1036,7 @@ export default function PokemonCatchingGame() {
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
                     pointerEvents: 'none',
+                    transform: pokemon.direction === 'left' ? 'scaleX(-1)' : 'none',
                   }}
                 />
                 {/* Rarity Badge */}
