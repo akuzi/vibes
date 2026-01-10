@@ -19,6 +19,7 @@
     "prismjs": "^1.30.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "nifti-reader-js": "^0.8.0",
     "react-resizable-panels": "^3.0.3",
     "react-simple-code-editor": "^0.14.1",
     "simplex-noise": "^4.0.3",

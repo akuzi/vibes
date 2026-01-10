@@ -147,6 +147,18 @@ export default function Home() {
                             <span className="text-white ml-4">Pokemon Catch</span>
                         </p>
                     </Link>
+                    <Link
+                        href="/experiments/nifti-viewer"
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('nifti-viewer')
+}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[12]</span>
+                            <span className="text-white ml-4">NIfTI Viewer</span>
+                        </p>
+                    </Link>
                 </div>
             </div>
         </div>
