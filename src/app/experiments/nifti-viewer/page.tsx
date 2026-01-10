@@ -37,6 +37,7 @@ export default function NiftiViewerPage() {
   });
   const [overlayOpacity, setOverlayOpacity] = useState(0.5);
   const [overlayColorMap, setOverlayColorMap] = useState<ColorMap>('jet');
+  const [primaryColorMap, setPrimaryColorMap] = useState<ColorMap>('grayscale');
 
   // 3D view state
   const [show3D, setShow3D] = useState(true);
@@ -150,7 +151,7 @@ export default function NiftiViewerPage() {
             >
               &larr; Back
             </Link>
-            <h1 className="text-lg font-medium text-white">NIfTI Viewer</h1>
+            <h1 className="text-lg font-medium text-white">Neuroimaging Viewer</h1>
           </div>
           <div className="text-xs text-gray-300">
             Use arrow keys to navigate slices (Shift for 10x)
@@ -249,6 +250,7 @@ export default function NiftiViewerPage() {
                     volume={primaryVolume}
                     enabled={show3D}
                     renderMode={renderMode}
+                    colorMap={primaryColorMap}
                   />
                 </div>
               </div>
@@ -263,6 +265,8 @@ export default function NiftiViewerPage() {
                   onOverlayOpacityChange={setOverlayOpacity}
                   overlayColorMap={overlayColorMap}
                   onOverlayColorMapChange={setOverlayColorMap}
+                  primaryColorMap={primaryColorMap}
+                  onPrimaryColorMapChange={setPrimaryColorMap}
                   show3D={show3D}
                   onShow3DChange={setShow3D}
                   renderMode={renderMode}

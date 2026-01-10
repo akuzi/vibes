@@ -4,11 +4,13 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three-stdlib';
 import { NiftiVolume } from '@/lib/nifti-viewer/parser';
+import { ColorMap, applyColorMap } from '@/lib/nifti-viewer/colorMaps';
 
 interface VolumeRendererProps {
   volume: NiftiVolume;
   enabled: boolean;
   renderMode: 'mip' | 'isosurface';
+  colorMap: ColorMap;
 }
 
 // Vertex shader for ray marching
@@ -30,6 +32,7 @@ const fragmentShaderMIP = `
   precision highp sampler3D;
 
   uniform sampler3D uVolume;
+  uniform sampler2D uColorMap;
   uniform vec3 uVolumeSize;
   uniform float uThreshold;
 
@@ -51,6 +54,10 @@ const fragmentShaderMIP = `
 
   float sample1(vec3 p) {
     return texture(uVolume, p + 0.5).r;
+  }
+
+  vec3 applyColorMap(float value) {
+    return texture2D(uColorMap, vec2(clamp(value, 0.0, 1.0), 0.5)).rgb;
   }
 
   void main() {
@@ -75,7 +82,8 @@ const fragmentShaderMIP = `
       p += rayDir * delta;
     }
 
-    gl_FragColor = vec4(vec3(maxVal), 1.0);
+    vec3 color = applyColorMap(maxVal);
+    gl_FragColor = vec4(color, 1.0);
   }
 `;
 
@@ -85,6 +93,7 @@ const fragmentShaderIso = `
   precision highp sampler3D;
 
   uniform sampler3D uVolume;
+  uniform sampler2D uColorMap;
   uniform vec3 uVolumeSize;
   uniform float uThreshold;
 
@@ -117,6 +126,10 @@ const fragmentShaderIso = `
     return normalize(n);
   }
 
+  vec3 applyColorMap(float value) {
+    return texture2D(uColorMap, vec2(clamp(value, 0.0, 1.0), 0.5)).rgb;
+  }
+
   void main() {
     vec3 rayDir = normalize(vDirection);
     vec2 bounds = hitBox(vOrigin, rayDir);
@@ -141,7 +154,8 @@ const fragmentShaderIso = `
         vec3 normal = getNormal(p);
         vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
         float diff = max(dot(normal, lightDir), 0.3);
-        color = vec4(vec3(0.8 * diff), 1.0);
+        vec3 baseColor = applyColorMap(val);
+        color = vec4(baseColor * 0.8 * diff, 1.0);
         break;
       }
 
@@ -160,6 +174,7 @@ export default function VolumeRenderer({
   volume,
   enabled,
   renderMode,
+  colorMap,
 }: VolumeRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -168,6 +183,7 @@ export default function VolumeRenderer({
   const controlsRef = useRef<OrbitControls | null>(null);
   const meshRef = useRef<THREE.Mesh | null>(null);
   const textureRef = useRef<THREE.Data3DTexture | null>(null);
+  const colorMapTextureRef = useRef<THREE.DataTexture | null>(null);
   const frameIdRef = useRef<number>(0);
 
   // Create 3D texture from volume data
@@ -190,6 +206,36 @@ export default function VolumeRenderer({
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.wrapR = THREE.ClampToEdgeWrapping;
+      texture.needsUpdate = true;
+
+      return texture;
+    },
+    []
+  );
+
+  // Create 1D color map texture
+  const createColorMapTexture = useCallback(
+    (map: ColorMap): THREE.DataTexture => {
+      const width = 256;
+      const data = new Uint8Array(width * 4);
+
+      for (let i = 0; i < width; i++) {
+        const value = i / (width - 1);
+        const [r, g, b] = applyColorMap(value, map);
+        const idx = i * 4;
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = 255;
+      }
+
+      const texture = new THREE.DataTexture(data, width, 1);
+      texture.format = THREE.RGBAFormat;
+      texture.type = THREE.UnsignedByteType;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.needsUpdate = true;
 
       return texture;
@@ -232,11 +278,16 @@ export default function VolumeRenderer({
     const texture = createVolumeTexture(volume);
     textureRef.current = texture;
 
+    // Create color map texture
+    const colorMapTexture = createColorMapTexture(colorMap);
+    colorMapTextureRef.current = colorMapTexture;
+
     // Create volume mesh
     const geometry = new THREE.BoxGeometry(1, 1, 1);
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uVolume: { value: texture },
+        uColorMap: { value: colorMapTexture },
         uVolumeSize: {
           value: new THREE.Vector3(volume.dims[0], volume.dims[1], volume.dims[2]),
         },
@@ -280,6 +331,9 @@ export default function VolumeRenderer({
       geometry.dispose();
       material.dispose();
       texture.dispose();
+      if (colorMapTextureRef.current) {
+        colorMapTextureRef.current.dispose();
+      }
       container.removeChild(renderer.domElement);
 
       rendererRef.current = null;
@@ -288,8 +342,9 @@ export default function VolumeRenderer({
       controlsRef.current = null;
       meshRef.current = null;
       textureRef.current = null;
+      colorMapTextureRef.current = null;
     };
-  }, [enabled, volume, createVolumeTexture, renderMode]);
+  }, [enabled, volume, createVolumeTexture, createColorMapTexture, renderMode, colorMap]);
 
   // Update shader when render mode changes
   useEffect(() => {
@@ -299,6 +354,18 @@ export default function VolumeRenderer({
       meshRef.current.material.needsUpdate = true;
     }
   }, [renderMode]);
+
+  // Update color map texture when it changes
+  useEffect(() => {
+    if (meshRef.current && meshRef.current.material instanceof THREE.ShaderMaterial) {
+      const colorMapTexture = createColorMapTexture(colorMap);
+      if (colorMapTextureRef.current) {
+        colorMapTextureRef.current.dispose();
+      }
+      colorMapTextureRef.current = colorMapTexture;
+      meshRef.current.material.uniforms.uColorMap.value = colorMapTexture;
+    }
+  }, [colorMap, createColorMapTexture]);
 
   if (!enabled) {
     return (

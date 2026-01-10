@@ -156,7 +156,7 @@ export default function Home() {
                     >
                         <p>
                             <span className="text-blue-400">[12]</span>
-                            <span className="text-white ml-4">NIfTI Viewer</span>
+                            <span className="text-white ml-4">Neuroimaging Viewer</span>
                         </p>
                     </Link>
                 </div>

@@ -17,6 +17,8 @@ interface ControlPanelProps {
   onOverlayOpacityChange: (opacity: number) => void;
   overlayColorMap: ColorMap;
   onOverlayColorMapChange: (colorMap: ColorMap) => void;
+  primaryColorMap: ColorMap;
+  onPrimaryColorMapChange: (colorMap: ColorMap) => void;
   show3D: boolean;
   onShow3DChange: (show: boolean) => void;
   renderMode: 'mip' | 'isosurface';
@@ -31,6 +33,8 @@ export default function ControlPanel({
   onOverlayOpacityChange,
   overlayColorMap,
   onOverlayColorMapChange,
+  primaryColorMap,
+  onPrimaryColorMapChange,
   show3D,
   onShow3DChange,
   renderMode,
@@ -168,21 +172,40 @@ export default function ControlPanel({
           </label>
 
           {show3D && (
-            <div>
-              <label className="flex items-center justify-between text-xs text-gray-300 mb-1">
-                <span>Render Mode</span>
-              </label>
-              <select
-                value={renderMode}
-                onChange={(e) =>
-                  onRenderModeChange(e.target.value as 'mip' | 'isosurface')
-                }
-                className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-600 focus:outline-none focus:border-blue-400"
-              >
-                <option value="mip">Maximum Intensity Projection</option>
-                <option value="isosurface">Isosurface</option>
-              </select>
-            </div>
+            <>
+              <div>
+                <label className="flex items-center justify-between text-xs text-gray-300 mb-1">
+                  <span>Color Map</span>
+                </label>
+                <select
+                  value={primaryColorMap}
+                  onChange={(e) => onPrimaryColorMapChange(e.target.value as ColorMap)}
+                  className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-600 focus:outline-none focus:border-blue-400"
+                >
+                  {COLOR_MAP_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="flex items-center justify-between text-xs text-gray-300 mb-1">
+                  <span>Render Mode</span>
+                </label>
+                <select
+                  value={renderMode}
+                  onChange={(e) =>
+                    onRenderModeChange(e.target.value as 'mip' | 'isosurface')
+                  }
+                  className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-600 focus:outline-none focus:border-blue-400"
+                >
+                  <option value="mip">Maximum Intensity Projection</option>
+                  <option value="isosurface">Isosurface</option>
+                </select>
+              </div>
+            </>
           )}
         </div>
       </div>
