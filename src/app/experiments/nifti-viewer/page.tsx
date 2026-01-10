@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { NiftiVolume, parseNiftiFile } from '@/lib/nifti-viewer/parser';
+import { NiftiVolume } from '@/lib/nifti-viewer/parser';
 import { WindowLevel, ColorMap } from '@/lib/nifti-viewer/colorMaps';
 import { VoxelCoords } from '@/lib/nifti-viewer/transforms';
 import { getSliceCount } from '@/lib/nifti-viewer/slicing';
