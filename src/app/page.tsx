@@ -17,8 +17,8 @@ export default function Home() {
     'voice-chat': "Talk to OpenAI using your voice. Speak naturally, get AI responses, and hear them read back to you using text-to-speech.",
     'speaking-avatar': "Watch an animated avatar lip-sync to text in real-time.",
     crochet: "Create and animate crochet patterns stitch-by-stitch. Watch cute amigurumi animals and patterns come to life with realistic crochet stitches.",
-    pokemon: "Catch Pokemon as they appear on screen! Click on them before they escape and build your Pokemon collection. A fun game for kids!"
-  };
+    'nifti-viewer': "View Neuroimaging data in 3D. Upload a NIfTI file and explore the brain in 3D."
+};
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-black text-green-400 font-mono p-8">
