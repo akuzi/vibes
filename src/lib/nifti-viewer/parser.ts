@@ -98,7 +98,7 @@ export async function parseNiftiFile(
 
   // Check if gzipped and decompress
   if (nifti.isCompressed(data)) {
-    data = nifti.decompress(data);
+    data = nifti.decompress(data) as ArrayBuffer;
   }
 
   // Validate NIfTI format
@@ -166,7 +166,7 @@ export function parseNiftiFileSync(arrayBuffer: ArrayBuffer): NiftiVolume {
   let data = arrayBuffer;
 
   if (nifti.isCompressed(data)) {
-    data = nifti.decompress(data);
+    data = nifti.decompress(data) as ArrayBuffer;
   }
 
   if (!nifti.isNIFTI(data)) {
