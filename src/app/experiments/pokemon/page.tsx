@@ -31,31 +31,57 @@ interface PowerUpBall {
   sprite: string;
 }
 
-const BALL_TYPES: Record<BallType, { sizeMultiplier: number; sprite: string; name: string }> = {
+interface BallConfig {
+  sizeMultiplier: number;
+  sprite: string;
+  name: string;
+  pointsMultiplier: number;
+  specialEffect: 'none' | 'levelUp' | 'freeze';
+  effectDuration?: number;
+  description: string;
+}
+
+const BALL_TYPES: Record<BallType, BallConfig> = {
   'poke-ball': {
     sizeMultiplier: 1,
     sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
-    name: 'Poke Ball'
+    name: 'Poke Ball',
+    pointsMultiplier: 1,
+    specialEffect: 'none',
+    description: 'Standard ball'
   },
   'great-ball': {
     sizeMultiplier: 1.5,
     sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',
-    name: 'Great Ball'
+    name: 'Great Ball',
+    pointsMultiplier: 1,
+    specialEffect: 'none',
+    description: '1.5x catch area'
   },
   'ultra-ball': {
     sizeMultiplier: 2,
     sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png',
-    name: 'Ultra Ball'
+    name: 'Ultra Ball',
+    pointsMultiplier: 2,
+    specialEffect: 'none',
+    description: '2x catch area + 2x points'
   },
   'luxury-ball': {
-    sizeMultiplier: 2.5,
+    sizeMultiplier: 1.5,
     sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/luxury-ball.png',
-    name: 'Luxury Ball'
+    name: 'Luxury Ball',
+    pointsMultiplier: 1,
+    specialEffect: 'levelUp',
+    description: 'Levels up Pokemon rarity!'
   },
   'master-ball': {
-    sizeMultiplier: 3,
+    sizeMultiplier: 2,
     sprite: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png',
-    name: 'Master Ball'
+    name: 'Master Ball',
+    pointsMultiplier: 1,
+    specialEffect: 'freeze',
+    effectDuration: 3000,
+    description: '2x area + freezes all for 3s'
   },
 };
 
@@ -69,6 +95,40 @@ const POKEMON_TYPES = [
   { name: 'Rattata', type: 'normal', color: '#A8A878', secondaryColor: '#6D6D4E', pokedexId: 19, rarity: 'common' as const, basePoints: 10 },
   { name: 'Psyduck', type: 'water', color: '#FFD700', secondaryColor: '#4169E1', pokedexId: 54, rarity: 'common' as const, basePoints: 10 },
   { name: 'Magikarp', type: 'water', color: '#FF6B6B', secondaryColor: '#FFA500', pokedexId: 129, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Weedle', type: 'bug', color: '#D4A76A', secondaryColor: '#8B4513', pokedexId: 13, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Spearow', type: 'flying', color: '#8B4513', secondaryColor: '#D2691E', pokedexId: 21, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Ekans', type: 'poison', color: '#A040A0', secondaryColor: '#6B2D6B', pokedexId: 23, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Sandshrew', type: 'ground', color: '#E0C068', secondaryColor: '#B8860B', pokedexId: 27, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Nidoran♀', type: 'poison', color: '#A040A0', secondaryColor: '#87CEEB', pokedexId: 29, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Nidoran♂', type: 'poison', color: '#A040A0', secondaryColor: '#D8BFD8', pokedexId: 32, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Vulpix', type: 'fire', color: '#FF8C00', secondaryColor: '#FFD700', pokedexId: 37, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Zubat', type: 'poison', color: '#A040A0', secondaryColor: '#4169E1', pokedexId: 41, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Oddish', type: 'grass', color: '#4169E1', secondaryColor: '#32CD32', pokedexId: 43, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Paras', type: 'bug', color: '#FF6347', secondaryColor: '#F4A460', pokedexId: 46, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Diglett', type: 'ground', color: '#D2691E', secondaryColor: '#FFB6C1', pokedexId: 50, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Mankey', type: 'fighting', color: '#F5DEB3', secondaryColor: '#8B4513', pokedexId: 56, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Poliwag', type: 'water', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 60, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Abra', type: 'psychic', color: '#FFD700', secondaryColor: '#8B4513', pokedexId: 63, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Bellsprout', type: 'grass', color: '#32CD32', secondaryColor: '#FFD700', pokedexId: 69, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Tentacool', type: 'water', color: '#4169E1', secondaryColor: '#FF6347', pokedexId: 72, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Geodude', type: 'rock', color: '#B8860B', secondaryColor: '#8B4513', pokedexId: 74, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Ponyta', type: 'fire', color: '#FFD700', secondaryColor: '#FF4500', pokedexId: 77, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Slowpoke', type: 'water', color: '#FFB6C1', secondaryColor: '#F5DEB3', pokedexId: 79, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Magnemite', type: 'electric', color: '#C0C0C0', secondaryColor: '#4169E1', pokedexId: 81, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Doduo', type: 'flying', color: '#8B4513', secondaryColor: '#F5DEB3', pokedexId: 84, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Seel', type: 'water', color: '#E0E0E0', secondaryColor: '#87CEEB', pokedexId: 86, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Grimer', type: 'poison', color: '#A040A0', secondaryColor: '#4B0082', pokedexId: 88, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Shellder', type: 'water', color: '#A040A0', secondaryColor: '#4169E1', pokedexId: 90, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Gastly', type: 'ghost', color: '#4B0082', secondaryColor: '#6A5ACD', pokedexId: 92, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Drowzee', type: 'psychic', color: '#FFD700', secondaryColor: '#8B4513', pokedexId: 96, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Krabby', type: 'water', color: '#FF6347', secondaryColor: '#F5DEB3', pokedexId: 98, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Voltorb', type: 'electric', color: '#FF0000', secondaryColor: '#FFFFFF', pokedexId: 100, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Exeggcute', type: 'grass', color: '#FFB6C1', secondaryColor: '#F5DEB3', pokedexId: 102, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Koffing', type: 'poison', color: '#A040A0', secondaryColor: '#6B2D6B', pokedexId: 109, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Horsea', type: 'water', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 116, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Goldeen', type: 'water', color: '#FF6347', secondaryColor: '#FFFFFF', pokedexId: 118, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Staryu', type: 'water', color: '#D4A76A', secondaryColor: '#FF0000', pokedexId: 120, rarity: 'common' as const, basePoints: 10 },
+  { name: 'Ditto', type: 'normal', color: '#D8BFD8', secondaryColor: '#9370DB', pokedexId: 132, rarity: 'common' as const, basePoints: 10 },
 
   // Uncommon Pokemon (20 points)
   { name: 'Pikachu', type: 'electric', color: '#FFD700', secondaryColor: '#FFA500', pokedexId: 25, rarity: 'uncommon' as const, basePoints: 20 },
@@ -76,6 +136,31 @@ const POKEMON_TYPES = [
   { name: 'Meowth', type: 'normal', color: '#F4E7C3', secondaryColor: '#D4A76A', pokedexId: 52, rarity: 'uncommon' as const, basePoints: 20 },
   { name: 'Machop', type: 'fighting', color: '#C03028', secondaryColor: '#7D1F1A', pokedexId: 66, rarity: 'uncommon' as const, basePoints: 20 },
   { name: 'Cubone', type: 'ground', color: '#E0C068', secondaryColor: '#927D44', pokedexId: 104, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Ivysaur', type: 'grass', color: '#32CD32', secondaryColor: '#FF69B4', pokedexId: 2, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Charmeleon', type: 'fire', color: '#FF4500', secondaryColor: '#FFD700', pokedexId: 5, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Wartortle', type: 'water', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 8, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Metapod', type: 'bug', color: '#32CD32', secondaryColor: '#228B22', pokedexId: 11, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Kakuna', type: 'bug', color: '#FFD700', secondaryColor: '#8B4513', pokedexId: 14, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Pidgeotto', type: 'flying', color: '#D2691E', secondaryColor: '#FFB6C1', pokedexId: 17, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Raticate', type: 'normal', color: '#D4A76A', secondaryColor: '#F5DEB3', pokedexId: 20, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Fearow', type: 'flying', color: '#8B4513', secondaryColor: '#FF6347', pokedexId: 22, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Arbok', type: 'poison', color: '#A040A0', secondaryColor: '#4B0082', pokedexId: 24, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Sandslash', type: 'ground', color: '#D4A76A', secondaryColor: '#8B4513', pokedexId: 28, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Clefairy', type: 'fairy', color: '#FFB6C1', secondaryColor: '#FF69B4', pokedexId: 35, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Ninetales', type: 'fire', color: '#F5DEB3', secondaryColor: '#FFD700', pokedexId: 38, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Golbat', type: 'poison', color: '#4169E1', secondaryColor: '#A040A0', pokedexId: 42, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Gloom', type: 'grass', color: '#4169E1', secondaryColor: '#32CD32', pokedexId: 44, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Parasect', type: 'bug', color: '#FF6347', secondaryColor: '#F4A460', pokedexId: 47, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Venonat', type: 'bug', color: '#A040A0', secondaryColor: '#FF0000', pokedexId: 48, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Dugtrio', type: 'ground', color: '#D2691E', secondaryColor: '#FFB6C1', pokedexId: 51, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Persian', type: 'normal', color: '#F5DEB3', secondaryColor: '#D4A76A', pokedexId: 53, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Golduck', type: 'water', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 55, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Primeape', type: 'fighting', color: '#F5DEB3', secondaryColor: '#8B4513', pokedexId: 57, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Growlithe', type: 'fire', color: '#FF6347', secondaryColor: '#F5DEB3', pokedexId: 58, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Poliwhirl', type: 'water', color: '#4169E1', secondaryColor: '#FFFFFF', pokedexId: 61, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Kadabra', type: 'psychic', color: '#FFD700', secondaryColor: '#8B4513', pokedexId: 64, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Machoke', type: 'fighting', color: '#6A5ACD', secondaryColor: '#4B0082', pokedexId: 67, rarity: 'uncommon' as const, basePoints: 20 },
+  { name: 'Weepinbell', type: 'grass', color: '#32CD32', secondaryColor: '#FFD700', pokedexId: 70, rarity: 'uncommon' as const, basePoints: 20 },
 
   // Rare Pokemon (30 points)
   { name: 'Raichu', type: 'electric', color: '#F7B731', secondaryColor: '#FFA500', pokedexId: 26, rarity: 'rare' as const, basePoints: 30 },
@@ -84,6 +169,30 @@ const POKEMON_TYPES = [
   { name: 'Gyarados', type: 'water', color: '#4169E1', secondaryColor: '#1E3A8A', pokedexId: 130, rarity: 'rare' as const, basePoints: 30 },
   { name: 'Eevee', type: 'normal', color: '#D2691E', secondaryColor: '#F5DEB3', pokedexId: 133, rarity: 'rare' as const, basePoints: 30 },
   { name: 'Lapras', type: 'water', color: '#4A90E2', secondaryColor: '#2E5C8A', pokedexId: 131, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Venusaur', type: 'grass', color: '#32CD32', secondaryColor: '#FF69B4', pokedexId: 3, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Butterfree', type: 'bug', color: '#E0E0E0', secondaryColor: '#4169E1', pokedexId: 12, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Beedrill', type: 'bug', color: '#FFD700', secondaryColor: '#000000', pokedexId: 15, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Pidgeot', type: 'flying', color: '#D2691E', secondaryColor: '#FFD700', pokedexId: 18, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Nidoqueen', type: 'poison', color: '#4169E1', secondaryColor: '#A040A0', pokedexId: 31, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Nidoking', type: 'poison', color: '#A040A0', secondaryColor: '#4B0082', pokedexId: 34, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Clefable', type: 'fairy', color: '#FFB6C1', secondaryColor: '#FF69B4', pokedexId: 36, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Wigglytuff', type: 'fairy', color: '#FFB6C1', secondaryColor: '#FF69B4', pokedexId: 40, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Vileplume', type: 'grass', color: '#FF0000', secondaryColor: '#32CD32', pokedexId: 45, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Venomoth', type: 'bug', color: '#A040A0', secondaryColor: '#E0E0E0', pokedexId: 49, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Poliwrath', type: 'water', color: '#4169E1', secondaryColor: '#FFFFFF', pokedexId: 62, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Alakazam', type: 'psychic', color: '#FFD700', secondaryColor: '#8B4513', pokedexId: 65, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Machamp', type: 'fighting', color: '#6A5ACD', secondaryColor: '#4B0082', pokedexId: 68, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Victreebel', type: 'grass', color: '#32CD32', secondaryColor: '#FFD700', pokedexId: 71, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Tentacruel', type: 'water', color: '#4169E1', secondaryColor: '#FF0000', pokedexId: 73, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Golem', type: 'rock', color: '#8B4513', secondaryColor: '#D4A76A', pokedexId: 76, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Rapidash', type: 'fire', color: '#F5DEB3', secondaryColor: '#FF4500', pokedexId: 78, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Slowbro', type: 'water', color: '#FFB6C1', secondaryColor: '#F5DEB3', pokedexId: 80, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Magneton', type: 'electric', color: '#C0C0C0', secondaryColor: '#4169E1', pokedexId: 82, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Farfetchd', type: 'flying', color: '#D2691E', secondaryColor: '#32CD32', pokedexId: 83, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Dodrio', type: 'flying', color: '#8B4513', secondaryColor: '#F5DEB3', pokedexId: 85, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Dewgong', type: 'water', color: '#E0E0E0', secondaryColor: '#87CEEB', pokedexId: 87, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Muk', type: 'poison', color: '#A040A0', secondaryColor: '#4B0082', pokedexId: 89, rarity: 'rare' as const, basePoints: 30 },
+  { name: 'Cloyster', type: 'water', color: '#A040A0', secondaryColor: '#4169E1', pokedexId: 91, rarity: 'rare' as const, basePoints: 30 },
 
   // Legendary Pokemon (50 points)
   { name: 'Charizard', type: 'fire', color: '#FF4500', secondaryColor: '#FFD700', pokedexId: 6, rarity: 'legendary' as const, basePoints: 50 },
@@ -91,6 +200,41 @@ const POKEMON_TYPES = [
   { name: 'Snorlax', type: 'normal', color: '#2C5F77', secondaryColor: '#E8D5B7', pokedexId: 143, rarity: 'legendary' as const, basePoints: 50 },
   { name: 'Dragonite', type: 'dragon', color: '#FFA500', secondaryColor: '#FF8C00', pokedexId: 149, rarity: 'legendary' as const, basePoints: 50 },
   { name: 'Mewtwo', type: 'psychic', color: '#B565D8', secondaryColor: '#8B4DC9', pokedexId: 150, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Haunter', type: 'ghost', color: '#6A5ACD', secondaryColor: '#4B0082', pokedexId: 93, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Hypno', type: 'psychic', color: '#FFD700', secondaryColor: '#FFFFFF', pokedexId: 97, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Kingler', type: 'water', color: '#FF6347', secondaryColor: '#F5DEB3', pokedexId: 99, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Electrode', type: 'electric', color: '#FF0000', secondaryColor: '#FFFFFF', pokedexId: 101, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Exeggutor', type: 'grass', color: '#FFD700', secondaryColor: '#32CD32', pokedexId: 103, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Marowak', type: 'ground', color: '#D4A76A', secondaryColor: '#8B4513', pokedexId: 105, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Hitmonlee', type: 'fighting', color: '#D2691E', secondaryColor: '#F5DEB3', pokedexId: 106, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Hitmonchan', type: 'fighting', color: '#D2691E', secondaryColor: '#FF0000', pokedexId: 107, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Lickitung', type: 'normal', color: '#FFB6C1', secondaryColor: '#FF69B4', pokedexId: 108, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Weezing', type: 'poison', color: '#A040A0', secondaryColor: '#6B2D6B', pokedexId: 110, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Rhydon', type: 'ground', color: '#808080', secondaryColor: '#D2691E', pokedexId: 112, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Chansey', type: 'normal', color: '#FFB6C1', secondaryColor: '#FFFFFF', pokedexId: 113, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Tangela', type: 'grass', color: '#4169E1', secondaryColor: '#32CD32', pokedexId: 114, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Kangaskhan', type: 'normal', color: '#D2691E', secondaryColor: '#F5DEB3', pokedexId: 115, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Seadra', type: 'water', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 117, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Seaking', type: 'water', color: '#FF6347', secondaryColor: '#FFFFFF', pokedexId: 119, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Starmie', type: 'water', color: '#A040A0', secondaryColor: '#FFD700', pokedexId: 121, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'MrMime', type: 'psychic', color: '#FFB6C1', secondaryColor: '#4169E1', pokedexId: 122, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Scyther', type: 'bug', color: '#32CD32', secondaryColor: '#228B22', pokedexId: 123, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Jynx', type: 'ice', color: '#A040A0', secondaryColor: '#FFD700', pokedexId: 124, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Electabuzz', type: 'electric', color: '#FFD700', secondaryColor: '#000000', pokedexId: 125, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Magmar', type: 'fire', color: '#FF4500', secondaryColor: '#FFD700', pokedexId: 126, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Pinsir', type: 'bug', color: '#D2691E', secondaryColor: '#8B4513', pokedexId: 127, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Tauros', type: 'normal', color: '#D2691E', secondaryColor: '#8B4513', pokedexId: 128, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Vaporeon', type: 'water', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 134, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Jolteon', type: 'electric', color: '#FFD700', secondaryColor: '#FFFFFF', pokedexId: 135, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Flareon', type: 'fire', color: '#FF4500', secondaryColor: '#FFD700', pokedexId: 136, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Porygon', type: 'normal', color: '#FFB6C1', secondaryColor: '#4169E1', pokedexId: 137, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Omanyte', type: 'rock', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 138, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Omastar', type: 'rock', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 139, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Kabuto', type: 'rock', color: '#D2691E', secondaryColor: '#8B4513', pokedexId: 140, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Kabutops', type: 'rock', color: '#D2691E', secondaryColor: '#8B4513', pokedexId: 141, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Aerodactyl', type: 'rock', color: '#A040A0', secondaryColor: '#808080', pokedexId: 142, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Dratini', type: 'dragon', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 147, rarity: 'legendary' as const, basePoints: 50 },
+  { name: 'Dragonair', type: 'dragon', color: '#4169E1', secondaryColor: '#87CEEB', pokedexId: 148, rarity: 'legendary' as const, basePoints: 50 },
 
   // Mythic Pokemon (100 points) - Ultra rare!
   { name: 'Mew', type: 'psychic', color: '#FFB6C1', secondaryColor: '#FF69B4', pokedexId: 151, rarity: 'mythic' as const, basePoints: 100 },
@@ -99,6 +243,12 @@ const POKEMON_TYPES = [
   { name: 'Deoxys', type: 'psychic', color: '#FF6347', secondaryColor: '#8B4DC9', pokedexId: 386, rarity: 'mythic' as const, basePoints: 100 },
   { name: 'Darkrai', type: 'dark', color: '#4B0082', secondaryColor: '#8B008B', pokedexId: 491, rarity: 'mythic' as const, basePoints: 100 },
   { name: 'Arceus', type: 'normal', color: '#FFFFFF', secondaryColor: '#FFD700', pokedexId: 493, rarity: 'mythic' as const, basePoints: 100 },
+  { name: 'Articuno', type: 'ice', color: '#87CEEB', secondaryColor: '#4169E1', pokedexId: 144, rarity: 'mythic' as const, basePoints: 100 },
+  { name: 'Zapdos', type: 'electric', color: '#FFD700', secondaryColor: '#000000', pokedexId: 145, rarity: 'mythic' as const, basePoints: 100 },
+  { name: 'Moltres', type: 'fire', color: '#FF4500', secondaryColor: '#FFD700', pokedexId: 146, rarity: 'mythic' as const, basePoints: 100 },
+  { name: 'Lugia', type: 'psychic', color: '#E0E0E0', secondaryColor: '#4169E1', pokedexId: 249, rarity: 'mythic' as const, basePoints: 100 },
+  { name: 'Ho-Oh', type: 'fire', color: '#FF4500', secondaryColor: '#FFD700', pokedexId: 250, rarity: 'mythic' as const, basePoints: 100 },
+  { name: 'Rayquaza', type: 'dragon', color: '#32CD32', secondaryColor: '#FFD700', pokedexId: 384, rarity: 'mythic' as const, basePoints: 100 },
 ];
 
 // Rarity affects speed - rarer Pokemon move faster!
@@ -135,7 +285,9 @@ export default function PokemonCatchingGame() {
   const [currentBallType, setCurrentBallType] = useState<BallType>('poke-ball');
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [transformingPokemonId, setTransformingPokemonId] = useState<number | null>(null);
+  const [isFrozen, setIsFrozen] = useState(false);
   const gameAreaRef = React.useRef<HTMLDivElement>(null);
+  const freezeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Create a single AudioContext to reuse (performance optimization)
   const audioContextRef = React.useRef<AudioContext | null>(null);
@@ -338,6 +490,9 @@ export default function PokemonCatchingGame() {
     if (!gameStarted) return;
 
     const moveInterval = setInterval(() => {
+      // Don't move Pokemon if frozen
+      if (isFrozen) return;
+
       setActivePokemon(prev =>
         prev
           .map(p => ({
@@ -349,7 +504,7 @@ export default function PokemonCatchingGame() {
     }, 30); // Update every 30ms for smooth 60fps movement
 
     return () => clearInterval(moveInterval);
-  }, [gameStarted]);
+  }, [gameStarted, isFrozen]);
 
   // Move power-up balls and remove if they go off screen
   useEffect(() => {
@@ -477,15 +632,19 @@ export default function PokemonCatchingGame() {
     // Play capture success sound immediately (before state updates)
     playCaptureSound();
 
-    // Check if using luxury ball for level-up
-    const isLuxuryBall = currentBallType === 'luxury-ball';
-    const upgradedRarity = isLuxuryBall ? getNextRarity(pokemon.rarity) : pokemon.rarity;
-    const didLevelUp = isLuxuryBall && upgradedRarity !== pokemon.rarity;
+    // Get ball configuration
+    const ballConfig = BALL_TYPES[currentBallType];
 
-    // Calculate points based on upgraded rarity if luxury ball was used
-    const pointsEarned = getPointsForRarity(upgradedRarity);
+    // Check if ball has level-up effect (Luxury Ball)
+    const hasLevelUp = ballConfig.specialEffect === 'levelUp';
+    const upgradedRarity = hasLevelUp ? getNextRarity(pokemon.rarity) : pokemon.rarity;
+    const didLevelUp = hasLevelUp && upgradedRarity !== pokemon.rarity;
 
-    // If luxury ball and will level up, show transformation animation
+    // Calculate points: base points for rarity * ball's points multiplier
+    const basePoints = getPointsForRarity(upgradedRarity);
+    const pointsEarned = Math.floor(basePoints * ballConfig.pointsMultiplier);
+
+    // If ball has level-up effect and will level up, show transformation animation
     if (didLevelUp) {
       // Mark Pokemon as transforming
       setTransformingPokemonId(pokemon.id);
@@ -501,11 +660,11 @@ export default function PokemonCatchingGame() {
       // Wait for transformation animation, then complete the catch
       setTimeout(() => {
         setTransformingPokemonId(null);
-        completeCatch(pokemon, upgradedRarity, pointsEarned, didLevelUp);
+        completeCatch(pokemon, upgradedRarity, pointsEarned, didLevelUp, ballConfig);
       }, 800); // Duration of transformation animation
     } else {
       // Normal catch without transformation
-      completeCatch(pokemon, upgradedRarity, pointsEarned, didLevelUp);
+      completeCatch(pokemon, upgradedRarity, pointsEarned, didLevelUp, ballConfig);
     }
   };
 
@@ -513,8 +672,21 @@ export default function PokemonCatchingGame() {
     pokemon: Pokemon,
     finalRarity: Pokemon['rarity'],
     pointsEarned: number,
-    didLevelUp: boolean
+    didLevelUp: boolean,
+    ballConfig: BallConfig
   ) => {
+    // Apply freeze effect if ball has it (Master Ball)
+    if (ballConfig.specialEffect === 'freeze' && ballConfig.effectDuration) {
+      // Clear any existing freeze timeout
+      if (freezeTimeoutRef.current) {
+        clearTimeout(freezeTimeoutRef.current);
+      }
+      setIsFrozen(true);
+      freezeTimeoutRef.current = setTimeout(() => {
+        setIsFrozen(false);
+      }, ballConfig.effectDuration);
+    }
+
     // Batch all state updates together
     React.startTransition(() => {
       // Remove the caught Pokemon
@@ -539,7 +711,15 @@ export default function PokemonCatchingGame() {
         ? ` ⬆️ Leveled up to ${finalRarity.toUpperCase()}!`
         : '';
 
-      setMessage(`${rarityEmoji[finalRarity]} You caught ${pokemon.name}!${levelUpText} +${pointsEarned} points!`);
+      const multiplierText = ballConfig.pointsMultiplier > 1
+        ? ` (${ballConfig.pointsMultiplier}x)`
+        : '';
+
+      const freezeText = ballConfig.specialEffect === 'freeze'
+        ? ' ❄️ FROZEN!'
+        : '';
+
+      setMessage(`${rarityEmoji[finalRarity]} You caught ${pokemon.name}!${levelUpText} +${pointsEarned}${multiplierText} points!${freezeText}`);
 
       // Clear any existing timeout to prevent premature message clearing
       if (messageTimeoutRef.current) {
@@ -564,9 +744,9 @@ export default function PokemonCatchingGame() {
       // Update current ball type
       setCurrentBallType(ball.ballType);
 
-      // Show message
-      const ballName = BALL_TYPES[ball.ballType].name;
-      setMessage(`⚡ You got a ${ballName}! Cursor size: ${ball.sizeMultiplier}x`);
+      // Show message with ball's special power description
+      const ballConfig = BALL_TYPES[ball.ballType];
+      setMessage(`⚡ You got a ${ballConfig.name}! ${ballConfig.description}`);
 
       // Clear any existing timeout to prevent premature message clearing
       if (messageTimeoutRef.current) {
@@ -717,6 +897,10 @@ export default function PokemonCatchingGame() {
     setGameStarted(false);
     setActivePokemon([]);
     setActivePowerUpBalls([]);
+    setIsFrozen(false);
+    if (freezeTimeoutRef.current) {
+      clearTimeout(freezeTimeoutRef.current);
+    }
   };
 
   // Save high score
@@ -1009,7 +1193,7 @@ export default function PokemonCatchingGame() {
                 top: `${pokemon.y}%`,
                 pointerEvents: 'none',
                 transition: 'transform 0.1s',
-                animation: isTransforming ? 'levelUp 0.8s ease-in-out' : 'float 2s ease-in-out infinite',
+                animation: isTransforming ? 'levelUp 0.8s ease-in-out' : isFrozen ? 'frozen 0.5s ease-in-out infinite' : 'float 2s ease-in-out infinite',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 WebkitTouchCallout: 'none',
@@ -1031,6 +1215,8 @@ export default function PokemonCatchingGame() {
                   style={{
                     filter: isTransforming
                       ? 'drop-shadow(0 0 20px rgba(255,215,0,0.8)) brightness(1.5) saturate(1.5)'
+                      : isFrozen
+                      ? 'drop-shadow(0 0 15px rgba(135,206,250,0.8)) brightness(1.2) saturate(0.5) hue-rotate(180deg)'
                       : 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))',
                     imageRendering: 'auto',
                     userSelect: 'none',
@@ -1588,6 +1774,18 @@ export default function PokemonCatchingGame() {
           50% {
             opacity: 0.5;
             transform: scale(1.3) rotate(180deg);
+          }
+        }
+
+        @keyframes frozen {
+          0%, 100% {
+            transform: translateX(0px);
+          }
+          25% {
+            transform: translateX(-2px);
+          }
+          75% {
+            transform: translateX(2px);
           }
         }
 

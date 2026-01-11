@@ -18,6 +18,8 @@ interface SliceIndices {
   sagittal: number;
 }
 
+type ExpandedView = 'axial' | 'coronal' | 'sagittal' | '3d' | null;
+
 export default function NiftiViewerPage() {
   // Volume state
   const [primaryVolume, setPrimaryVolume] = useState<NiftiVolume | null>(null);
@@ -47,6 +49,9 @@ export default function NiftiViewerPage() {
   const [crosshairPosition, setCrosshairPosition] = useState<VoxelCoords | null>(
     null
   );
+
+  // Expanded view state
+  const [expandedView, setExpandedView] = useState<ExpandedView>(null);
 
   // Initialize slice indices when volume is loaded
   useEffect(() => {
@@ -113,6 +118,12 @@ export default function NiftiViewerPage() {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to close expanded view
+      if (e.key === 'Escape' && expandedView) {
+        setExpandedView(null);
+        return;
+      }
+
       if (!primaryVolume) return;
 
       const step = e.shiftKey ? 10 : 1;
@@ -137,7 +148,7 @@ export default function NiftiViewerPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [primaryVolume]);
+  }, [primaryVolume, expandedView]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -195,89 +206,225 @@ export default function NiftiViewerPage() {
             </div>
 
             {/* Main viewer layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              {/* 2D views - 3 columns */}
-              <div className="lg:col-span-3">
-                {/* Top row: 3 orthogonal views */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="aspect-square">
-                    <SliceViewer
-                      volume={primaryVolume}
-                      overlay={overlayVolume || undefined}
-                      plane="axial"
-                      sliceIndex={sliceIndices.axial}
-                      windowLevel={windowLevel}
-                      overlayColorMap={overlayColorMap}
-                      overlayOpacity={overlayOpacity}
-                      crosshairPosition={crosshairPosition}
-                      onCrosshairMove={handleCrosshairMove}
-                      onSliceChange={handleAxialChange}
-                    />
+            {expandedView ? (
+              // Expanded single view
+              <div className="fixed inset-0 z-50 bg-black flex flex-col">
+                {/* Expanded view header */}
+                <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-700">
+                  <span className="text-lg font-medium capitalize">
+                    {expandedView === '3d' ? '3D Volume' : `${expandedView} View`}
+                  </span>
+                  <button
+                    onClick={() => setExpandedView(null)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                    </svg>
+                    Minimize
+                  </button>
+                </div>
+
+                {/* Floating minimize button - always visible */}
+                <button
+                  onClick={() => setExpandedView(null)}
+                  className="fixed bottom-6 right-6 z-[60] flex items-center gap-2 px-5 py-3 bg-red-600 hover:bg-red-500 rounded-full text-white font-medium shadow-lg shadow-red-900/50 transition-all hover:scale-105"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                  </svg>
+                  Minimize (Esc)
+                </button>
+                {/* Expanded content */}
+                <div className="flex-1 p-4">
+                  {expandedView === 'axial' && (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="h-full aspect-square max-w-full">
+                        <SliceViewer
+                          volume={primaryVolume}
+                          overlay={overlayVolume || undefined}
+                          plane="axial"
+                          sliceIndex={sliceIndices.axial}
+                          windowLevel={windowLevel}
+                          overlayColorMap={overlayColorMap}
+                          overlayOpacity={overlayOpacity}
+                          crosshairPosition={crosshairPosition}
+                          onCrosshairMove={handleCrosshairMove}
+                          onSliceChange={handleAxialChange}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {expandedView === 'coronal' && (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="h-full aspect-square max-w-full">
+                        <SliceViewer
+                          volume={primaryVolume}
+                          overlay={overlayVolume || undefined}
+                          plane="coronal"
+                          sliceIndex={sliceIndices.coronal}
+                          windowLevel={windowLevel}
+                          overlayColorMap={overlayColorMap}
+                          overlayOpacity={overlayOpacity}
+                          crosshairPosition={crosshairPosition}
+                          onCrosshairMove={handleCrosshairMove}
+                          onSliceChange={handleCoronalChange}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {expandedView === 'sagittal' && (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="h-full aspect-square max-w-full">
+                        <SliceViewer
+                          volume={primaryVolume}
+                          overlay={overlayVolume || undefined}
+                          plane="sagittal"
+                          sliceIndex={sliceIndices.sagittal}
+                          windowLevel={windowLevel}
+                          overlayColorMap={overlayColorMap}
+                          overlayOpacity={overlayOpacity}
+                          crosshairPosition={crosshairPosition}
+                          onCrosshairMove={handleCrosshairMove}
+                          onSliceChange={handleSagittalChange}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {expandedView === '3d' && (
+                    <div className="h-full bg-gray-900 rounded-lg border border-gray-700">
+                      <VolumeRenderer
+                        volume={primaryVolume}
+                        enabled={show3D}
+                        renderMode={renderMode}
+                        colorMap={primaryColorMap}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              // Normal grid layout
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                {/* 2D views - 3 columns */}
+                <div className="lg:col-span-3">
+                  {/* Top row: 3 orthogonal views */}
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="aspect-square relative group">
+                      <SliceViewer
+                        volume={primaryVolume}
+                        overlay={overlayVolume || undefined}
+                        plane="axial"
+                        sliceIndex={sliceIndices.axial}
+                        windowLevel={windowLevel}
+                        overlayColorMap={overlayColorMap}
+                        overlayOpacity={overlayOpacity}
+                        crosshairPosition={crosshairPosition}
+                        onCrosshairMove={handleCrosshairMove}
+                        onSliceChange={handleAxialChange}
+                      />
+                      <button
+                        onClick={() => setExpandedView('axial')}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Expand Axial view"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="aspect-square relative group">
+                      <SliceViewer
+                        volume={primaryVolume}
+                        overlay={overlayVolume || undefined}
+                        plane="coronal"
+                        sliceIndex={sliceIndices.coronal}
+                        windowLevel={windowLevel}
+                        overlayColorMap={overlayColorMap}
+                        overlayOpacity={overlayOpacity}
+                        crosshairPosition={crosshairPosition}
+                        onCrosshairMove={handleCrosshairMove}
+                        onSliceChange={handleCoronalChange}
+                      />
+                      <button
+                        onClick={() => setExpandedView('coronal')}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Expand Coronal view"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="aspect-square relative group">
+                      <SliceViewer
+                        volume={primaryVolume}
+                        overlay={overlayVolume || undefined}
+                        plane="sagittal"
+                        sliceIndex={sliceIndices.sagittal}
+                        windowLevel={windowLevel}
+                        overlayColorMap={overlayColorMap}
+                        overlayOpacity={overlayOpacity}
+                        crosshairPosition={crosshairPosition}
+                        onCrosshairMove={handleCrosshairMove}
+                        onSliceChange={handleSagittalChange}
+                      />
+                      <button
+                        onClick={() => setExpandedView('sagittal')}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Expand Sagittal view"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                  <div className="aspect-square">
-                    <SliceViewer
+
+                  {/* Bottom: 3D view */}
+                  <div className="h-[300px] bg-gray-900 rounded-lg border border-gray-700 relative group">
+                    <VolumeRenderer
                       volume={primaryVolume}
-                      overlay={overlayVolume || undefined}
-                      plane="coronal"
-                      sliceIndex={sliceIndices.coronal}
-                      windowLevel={windowLevel}
-                      overlayColorMap={overlayColorMap}
-                      overlayOpacity={overlayOpacity}
-                      crosshairPosition={crosshairPosition}
-                      onCrosshairMove={handleCrosshairMove}
-                      onSliceChange={handleCoronalChange}
+                      enabled={show3D}
+                      renderMode={renderMode}
+                      colorMap={primaryColorMap}
                     />
-                  </div>
-                  <div className="aspect-square">
-                    <SliceViewer
-                      volume={primaryVolume}
-                      overlay={overlayVolume || undefined}
-                      plane="sagittal"
-                      sliceIndex={sliceIndices.sagittal}
-                      windowLevel={windowLevel}
-                      overlayColorMap={overlayColorMap}
-                      overlayOpacity={overlayOpacity}
-                      crosshairPosition={crosshairPosition}
-                      onCrosshairMove={handleCrosshairMove}
-                      onSliceChange={handleSagittalChange}
-                    />
+                    <button
+                      onClick={() => setExpandedView('3d')}
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Expand 3D view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
-                {/* Bottom: 3D view */}
-                <div className="h-[300px] bg-gray-900 rounded-lg border border-gray-700">
-                  <VolumeRenderer
+                {/* Right sidebar - controls and info */}
+                <div className="space-y-4">
+                  <ControlPanel
                     volume={primaryVolume}
-                    enabled={show3D}
+                    windowLevel={windowLevel}
+                    onWindowLevelChange={setWindowLevel}
+                    overlayOpacity={overlayOpacity}
+                    onOverlayOpacityChange={setOverlayOpacity}
+                    overlayColorMap={overlayColorMap}
+                    onOverlayColorMapChange={setOverlayColorMap}
+                    primaryColorMap={primaryColorMap}
+                    onPrimaryColorMapChange={setPrimaryColorMap}
+                    show3D={show3D}
+                    onShow3DChange={setShow3D}
                     renderMode={renderMode}
-                    colorMap={primaryColorMap}
+                    onRenderModeChange={setRenderMode}
+                  />
+                  <InfoPanel
+                    volume={primaryVolume}
+                    crosshairPosition={crosshairPosition}
                   />
                 </div>
               </div>
-
-              {/* Right sidebar - controls and info */}
-              <div className="space-y-4">
-                <ControlPanel
-                  volume={primaryVolume}
-                  windowLevel={windowLevel}
-                  onWindowLevelChange={setWindowLevel}
-                  overlayOpacity={overlayOpacity}
-                  onOverlayOpacityChange={setOverlayOpacity}
-                  overlayColorMap={overlayColorMap}
-                  onOverlayColorMapChange={setOverlayColorMap}
-                  primaryColorMap={primaryColorMap}
-                  onPrimaryColorMapChange={setPrimaryColorMap}
-                  show3D={show3D}
-                  onShow3DChange={setShow3D}
-                  renderMode={renderMode}
-                  onRenderModeChange={setRenderMode}
-                />
-                <InfoPanel
-                  volume={primaryVolume}
-                  crosshairPosition={crosshairPosition}
-                />
-              </div>
-            </div>
+            )}
           </div>
         )}
       </main>
