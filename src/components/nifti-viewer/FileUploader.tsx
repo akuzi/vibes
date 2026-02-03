@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useState, useRef } from 'react';
+import JSZip from 'jszip';
 import { parseNiftiFile } from '@/lib/nifti-viewer/parser';
 import { parseDicomFiles } from '@/lib/nifti-viewer/dicomParser';
 import { ImageVolume } from '@/lib/nifti-viewer/types';
@@ -19,6 +20,20 @@ function isDicomFile(file: File): boolean {
 function isNiftiFile(file: File): boolean {
   const name = file.name.toLowerCase();
   return name.endsWith('.nii') || name.endsWith('.nii.gz');
+}
+
+function isZipFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith('.zip');
+}
+
+function isDicomEntry(name: string): boolean {
+  const basename = name.split('/').pop() || '';
+  if (basename.startsWith('.') || basename === 'DICOMDIR') return false;
+  if (basename.toLowerCase().endsWith('.dcm') || basename.toLowerCase().endsWith('.dicom')) return true;
+  // Include files without common non-DICOM extensions (DICOM files often have no extension)
+  const nonDicomExts = ['.txt', '.xml', '.json', '.csv', '.html', '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip'];
+  return !nonDicomExts.some((ext) => basename.toLowerCase().endsWith(ext));
 }
 
 export default function FileUploader({
@@ -78,10 +93,54 @@ export default function FileUploader({
     [onFileLoad]
   );
 
+  const handleZipFile = useCallback(
+    async (file: File) => {
+      setError(null);
+      setIsLoading(true);
+
+      try {
+        const zipData = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(zipData);
+
+        const dicomEntries = Object.entries(zip.files).filter(
+          ([name, entry]) => !entry.dir && isDicomEntry(name)
+        );
+
+        if (dicomEntries.length === 0) {
+          setError('No DICOM files found in the zip archive');
+          setIsLoading(false);
+          return;
+        }
+
+        const arrayBuffers = await Promise.all(
+          dicomEntries.map(([, entry]) => entry.async('arraybuffer'))
+        );
+
+        const volume = await parseDicomFiles(arrayBuffers);
+        setFileName(`${dicomEntries.length} DICOM files (from zip)`);
+        onFileLoad(volume);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to parse zip file'
+        );
+        setFileName(null);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [onFileLoad]
+  );
+
   const handleFiles = useCallback(
     async (fileList: FileList) => {
       const files = Array.from(fileList);
       if (files.length === 0) return;
+
+      // Single zip file — extract and process DICOM contents
+      if (files.length === 1 && isZipFile(files[0])) {
+        handleZipFile(files[0]);
+        return;
+      }
 
       // Single NIfTI file
       if (files.length === 1 && isNiftiFile(files[0])) {
@@ -110,7 +169,7 @@ export default function FileUploader({
 
       setError('Unsupported file format');
     },
-    [handleNiftiFile, handleDicomFiles]
+    [handleNiftiFile, handleDicomFiles, handleZipFile]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -212,7 +271,7 @@ export default function FileUploader({
       >
         <input
           type="file"
-          accept=".nii,.nii.gz,.dcm,.dicom"
+          accept=".nii,.nii.gz,.dcm,.dicom,.zip"
           multiple
           onChange={handleFileInput}
           disabled={disabled || isLoading}
@@ -252,7 +311,7 @@ export default function FileUploader({
           <div className="text-center">
             <span className="text-gray-200">{label}</span>
             <p className="text-gray-300 text-xs mt-1">
-              Drop .nii, .nii.gz, or .dcm files here
+              Drop .nii, .nii.gz, .dcm, or .zip files here
             </p>
           </div>
         )}
