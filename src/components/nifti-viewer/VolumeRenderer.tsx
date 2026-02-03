@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three-stdlib';
 import { ImageVolume } from '@/lib/nifti-viewer/types';
@@ -11,6 +11,9 @@ interface VolumeRendererProps {
   enabled: boolean;
   renderMode: 'mip' | 'isosurface';
   colorMap: ColorMap;
+  overlay?: ImageVolume;
+  overlayColorMap?: ColorMap;
+  overlayOpacity?: number;
 }
 
 // Vertex shader for ray marching
@@ -35,6 +38,10 @@ const fragmentShaderMIP = `
   uniform sampler2D uColorMap;
   uniform vec3 uVolumeSize;
   uniform float uThreshold;
+  uniform sampler3D uOverlay;
+  uniform sampler2D uOverlayColorMap;
+  uniform float uOverlayOpacity;
+  uniform bool uHasOverlay;
 
   varying vec3 vOrigin;
   varying vec3 vDirection;
@@ -56,8 +63,16 @@ const fragmentShaderMIP = `
     return texture(uVolume, p + 0.5).r;
   }
 
+  float sampleOverlay(vec3 p) {
+    return texture(uOverlay, p + 0.5).r;
+  }
+
   vec3 applyColorMap(float value) {
     return texture2D(uColorMap, vec2(clamp(value, 0.0, 1.0), 0.5)).rgb;
+  }
+
+  vec3 applyOverlayColorMap(float value) {
+    return texture2D(uOverlayColorMap, vec2(clamp(value, 0.0, 1.0), 0.5)).rgb;
   }
 
   void main() {
@@ -76,13 +91,22 @@ const fragmentShaderMIP = `
     delta = min(delta, 0.01);
 
     float maxVal = 0.0;
+    float maxOverlayVal = 0.0;
     for (float t = bounds.x; t < bounds.y; t += delta) {
       float val = sample1(p);
       maxVal = max(maxVal, val);
+      if (uHasOverlay) {
+        float oVal = sampleOverlay(p);
+        maxOverlayVal = max(maxOverlayVal, oVal);
+      }
       p += rayDir * delta;
     }
 
     vec3 color = applyColorMap(maxVal);
+    if (uHasOverlay && maxOverlayVal > 0.01) {
+      vec3 oColor = applyOverlayColorMap(maxOverlayVal);
+      color = mix(color, oColor, uOverlayOpacity);
+    }
     gl_FragColor = vec4(color, 1.0);
   }
 `;
@@ -96,6 +120,10 @@ const fragmentShaderIso = `
   uniform sampler2D uColorMap;
   uniform vec3 uVolumeSize;
   uniform float uThreshold;
+  uniform sampler3D uOverlay;
+  uniform sampler2D uOverlayColorMap;
+  uniform float uOverlayOpacity;
+  uniform bool uHasOverlay;
 
   varying vec3 vOrigin;
   varying vec3 vDirection;
@@ -117,6 +145,10 @@ const fragmentShaderIso = `
     return texture(uVolume, p + 0.5).r;
   }
 
+  float sampleOverlay(vec3 p) {
+    return texture(uOverlay, p + 0.5).r;
+  }
+
   vec3 getNormal(vec3 p) {
     float eps = 0.01;
     vec3 n;
@@ -128,6 +160,10 @@ const fragmentShaderIso = `
 
   vec3 applyColorMap(float value) {
     return texture2D(uColorMap, vec2(clamp(value, 0.0, 1.0), 0.5)).rgb;
+  }
+
+  vec3 applyOverlayColorMap(float value) {
+    return texture2D(uOverlayColorMap, vec2(clamp(value, 0.0, 1.0), 0.5)).rgb;
   }
 
   void main() {
@@ -155,7 +191,17 @@ const fragmentShaderIso = `
         vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
         float diff = max(dot(normal, lightDir), 0.3);
         vec3 baseColor = applyColorMap(val);
-        color = vec4(baseColor * 0.8 * diff, 1.0);
+        vec3 surfaceColor = baseColor * 0.8 * diff;
+
+        if (uHasOverlay) {
+          float oVal = sampleOverlay(p);
+          if (oVal > 0.01) {
+            vec3 oColor = applyOverlayColorMap(oVal);
+            surfaceColor = mix(surfaceColor, oColor, uOverlayOpacity);
+          }
+        }
+
+        color = vec4(surfaceColor, 1.0);
         break;
       }
 
@@ -175,6 +221,9 @@ export default function VolumeRenderer({
   enabled,
   renderMode,
   colorMap,
+  overlay,
+  overlayColorMap = 'jet',
+  overlayOpacity = 0.5,
 }: VolumeRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -184,6 +233,8 @@ export default function VolumeRenderer({
   const meshRef = useRef<THREE.Mesh | null>(null);
   const textureRef = useRef<THREE.Data3DTexture | null>(null);
   const colorMapTextureRef = useRef<THREE.DataTexture | null>(null);
+  const overlayTextureRef = useRef<THREE.Data3DTexture | null>(null);
+  const overlayColorMapTextureRef = useRef<THREE.DataTexture | null>(null);
   const frameIdRef = useRef<number>(0);
 
   // Create 3D texture from volume data
@@ -282,6 +333,22 @@ export default function VolumeRenderer({
     const colorMapTexture = createColorMapTexture(colorMap);
     colorMapTextureRef.current = colorMapTexture;
 
+    // Create overlay textures (use a 1x1x1 dummy if no overlay)
+    let overlayTexture: THREE.Data3DTexture;
+    if (overlay) {
+      overlayTexture = createVolumeTexture(overlay);
+    } else {
+      const dummyData = new Float32Array(1);
+      overlayTexture = new THREE.Data3DTexture(dummyData, 1, 1, 1);
+      overlayTexture.format = THREE.RedFormat;
+      overlayTexture.type = THREE.FloatType;
+      overlayTexture.needsUpdate = true;
+    }
+    overlayTextureRef.current = overlayTexture;
+
+    const overlayColorMapTexture = createColorMapTexture(overlayColorMap);
+    overlayColorMapTextureRef.current = overlayColorMapTexture;
+
     // Create volume mesh
     const geometry = new THREE.BoxGeometry(1, 1, 1);
     const material = new THREE.ShaderMaterial({
@@ -292,6 +359,10 @@ export default function VolumeRenderer({
           value: new THREE.Vector3(volume.dims[0], volume.dims[1], volume.dims[2]),
         },
         uThreshold: { value: 0.3 },
+        uOverlay: { value: overlayTexture },
+        uOverlayColorMap: { value: overlayColorMapTexture },
+        uOverlayOpacity: { value: overlayOpacity },
+        uHasOverlay: { value: !!overlay },
       },
       vertexShader,
       fragmentShader: renderMode === 'mip' ? fragmentShaderMIP : fragmentShaderIso,
@@ -331,8 +402,12 @@ export default function VolumeRenderer({
       geometry.dispose();
       material.dispose();
       texture.dispose();
+      overlayTexture.dispose();
       if (colorMapTextureRef.current) {
         colorMapTextureRef.current.dispose();
+      }
+      if (overlayColorMapTextureRef.current) {
+        overlayColorMapTextureRef.current.dispose();
       }
       container.removeChild(renderer.domElement);
 
@@ -343,8 +418,10 @@ export default function VolumeRenderer({
       meshRef.current = null;
       textureRef.current = null;
       colorMapTextureRef.current = null;
+      overlayTextureRef.current = null;
+      overlayColorMapTextureRef.current = null;
     };
-  }, [enabled, volume, createVolumeTexture, createColorMapTexture, renderMode, colorMap]);
+  }, [enabled, volume, overlay, createVolumeTexture, createColorMapTexture, renderMode, colorMap, overlayColorMap, overlayOpacity]);
 
   // Update shader when render mode changes
   useEffect(() => {
@@ -367,6 +444,100 @@ export default function VolumeRenderer({
     }
   }, [colorMap, createColorMapTexture]);
 
+  // Update overlay colormap texture when it changes
+  useEffect(() => {
+    if (meshRef.current && meshRef.current.material instanceof THREE.ShaderMaterial) {
+      const tex = createColorMapTexture(overlayColorMap);
+      if (overlayColorMapTextureRef.current) {
+        overlayColorMapTextureRef.current.dispose();
+      }
+      overlayColorMapTextureRef.current = tex;
+      meshRef.current.material.uniforms.uOverlayColorMap.value = tex;
+    }
+  }, [overlayColorMap, createColorMapTexture]);
+
+  // Update overlay opacity uniform reactively
+  useEffect(() => {
+    if (meshRef.current && meshRef.current.material instanceof THREE.ShaderMaterial) {
+      meshRef.current.material.uniforms.uOverlayOpacity.value = overlayOpacity;
+    }
+  }, [overlayOpacity]);
+
+  // Auto-rotate state
+  const [autoRotateAxis, setAutoRotateAxis] = useState<'x' | 'y' | 'z' | null>(null);
+
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    controlsRef.current.autoRotate = autoRotateAxis !== null;
+    controlsRef.current.autoRotateSpeed = 4.0;
+  }, [autoRotateAxis]);
+
+  useEffect(() => {
+    if (!controlsRef.current || !cameraRef.current || autoRotateAxis === null) return;
+
+    const controls = controlsRef.current;
+    // OrbitControls rotates around Y by default. To rotate around X or Z,
+    // we tilt the polar axis so autoRotate orbits the desired axis.
+    switch (autoRotateAxis) {
+      case 'y':
+        // Default OrbitControls behavior — orbit around world Y
+        controls.target.set(0, 0, 0);
+        break;
+      case 'x':
+        // Position camera to look along Z, then auto-rotate gives X-axis rotation feel
+        cameraRef.current.position.set(0, 0, 2);
+        cameraRef.current.up.set(0, 0, 1);
+        controls.target.set(0, 0, 0);
+        break;
+      case 'z':
+        cameraRef.current.position.set(0, 2, 0);
+        cameraRef.current.up.set(1, 0, 0);
+        controls.target.set(0, 0, 0);
+        break;
+    }
+    controls.update();
+  }, [autoRotateAxis]);
+
+  const setCameraView = useCallback((axis: 'x' | 'y' | 'z' | '-x' | '-y' | '-z') => {
+    if (!cameraRef.current || !controlsRef.current) return;
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    const dist = 2;
+
+    // Reset up vector and stop auto-rotate
+    camera.up.set(0, 1, 0);
+    setAutoRotateAxis(null);
+
+    switch (axis) {
+      case 'x':
+        camera.position.set(dist, 0, 0);
+        break;
+      case '-x':
+        camera.position.set(-dist, 0, 0);
+        break;
+      case 'y':
+        camera.position.set(0, dist, 0);
+        camera.up.set(0, 0, -1);
+        break;
+      case '-y':
+        camera.position.set(0, -dist, 0);
+        camera.up.set(0, 0, 1);
+        break;
+      case 'z':
+        camera.position.set(0, 0, dist);
+        break;
+      case '-z':
+        camera.position.set(0, 0, -dist);
+        break;
+    }
+    controls.target.set(0, 0, 0);
+    controls.update();
+  }, []);
+
+  const toggleAutoRotate = useCallback((axis: 'x' | 'y' | 'z') => {
+    setAutoRotateAxis((prev) => (prev === axis ? null : axis));
+  }, []);
+
   if (!enabled) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700">
@@ -376,10 +547,50 @@ export default function VolumeRenderer({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full rounded-lg overflow-hidden"
-      style={{ minHeight: 300 }}
-    />
+    <div className="relative w-full h-full" style={{ minHeight: 300 }}>
+      <div
+        ref={containerRef}
+        className="w-full h-full rounded-lg overflow-hidden"
+      />
+      {/* Axis view controls */}
+      <div className="absolute bottom-3 left-3 flex gap-1.5">
+        {/* Snap-to-axis buttons */}
+        {(['x', 'y', 'z'] as const).map((axis) => (
+          <div key={axis} className="flex flex-col gap-1">
+            <button
+              onClick={() => setCameraView(axis)}
+              className="px-2 py-1 text-xs font-mono bg-black/60 hover:bg-black/80 text-gray-200 hover:text-white rounded transition-colors border border-gray-600 hover:border-gray-400"
+              title={`View along +${axis.toUpperCase()}`}
+            >
+              +{axis.toUpperCase()}
+            </button>
+            <button
+              onClick={() => setCameraView(`-${axis}` as `-x` | `-y` | `-z`)}
+              className="px-2 py-1 text-xs font-mono bg-black/60 hover:bg-black/80 text-gray-200 hover:text-white rounded transition-colors border border-gray-600 hover:border-gray-400"
+              title={`View along -${axis.toUpperCase()}`}
+            >
+              -{axis.toUpperCase()}
+            </button>
+          </div>
+        ))}
+        {/* Divider */}
+        <div className="w-px bg-gray-600 mx-1" />
+        {/* Auto-rotate buttons */}
+        {(['x', 'y', 'z'] as const).map((axis) => (
+          <button
+            key={`rot-${axis}`}
+            onClick={() => toggleAutoRotate(axis)}
+            className={`px-2 py-1 text-xs font-mono rounded transition-colors border ${
+              autoRotateAxis === axis
+                ? 'bg-blue-600/80 border-blue-400 text-white'
+                : 'bg-black/60 hover:bg-black/80 text-gray-200 hover:text-white border-gray-600 hover:border-gray-400'
+            }`}
+            title={`Auto-rotate around ${axis.toUpperCase()}`}
+          >
+            {autoRotateAxis === axis ? `\u21BB${axis.toUpperCase()}` : `\u21BB${axis.toUpperCase()}`}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

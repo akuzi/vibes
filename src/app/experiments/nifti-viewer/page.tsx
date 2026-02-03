@@ -298,6 +298,9 @@ export default function NiftiViewerPage() {
                         enabled={show3D}
                         renderMode={renderMode}
                         colorMap={primaryColorMap}
+                        overlay={overlayVolume || undefined}
+                        overlayColorMap={overlayColorMap}
+                        overlayOpacity={overlayOpacity}
                       />
                     </div>
                   )}
@@ -388,6 +391,9 @@ export default function NiftiViewerPage() {
                       enabled={show3D}
                       renderMode={renderMode}
                       colorMap={primaryColorMap}
+                      overlay={overlayVolume || undefined}
+                      overlayColorMap={overlayColorMap}
+                      overlayOpacity={overlayOpacity}
                     />
                     <button
                       onClick={() => setExpandedView('3d')}
