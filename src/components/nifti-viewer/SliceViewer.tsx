@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { NiftiVolume } from '@/lib/nifti-viewer/parser';
+import { ImageVolume } from '@/lib/nifti-viewer/types';
 import {
   extractSlice,
   SlicePlane,
@@ -21,8 +21,8 @@ import {
 } from '@/lib/nifti-viewer/transforms';
 
 interface SliceViewerProps {
-  volume: NiftiVolume;
-  overlay?: NiftiVolume;
+  volume: ImageVolume;
+  overlay?: ImageVolume;
   plane: SlicePlane;
   sliceIndex: number;
   windowLevel: WindowLevel;

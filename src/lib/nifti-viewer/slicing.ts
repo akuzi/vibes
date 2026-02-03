@@ -1,4 +1,4 @@
-import { NiftiVolume } from './parser';
+import { ImageVolume } from './types';
 
 export type SlicePlane = 'axial' | 'coronal' | 'sagittal';
 
@@ -18,7 +18,7 @@ function getVoxelIndex(
 }
 
 export function extractAxialSlice(
-  volume: NiftiVolume,
+  volume: ImageVolume,
   sliceIndex: number
 ): SliceData {
   const [dimX, dimY] = volume.dims;
@@ -43,7 +43,7 @@ export function extractAxialSlice(
 }
 
 export function extractCoronalSlice(
-  volume: NiftiVolume,
+  volume: ImageVolume,
   sliceIndex: number
 ): SliceData {
   const [dimX, , dimZ] = volume.dims;
@@ -68,7 +68,7 @@ export function extractCoronalSlice(
 }
 
 export function extractSagittalSlice(
-  volume: NiftiVolume,
+  volume: ImageVolume,
   sliceIndex: number
 ): SliceData {
   const [, dimY, dimZ] = volume.dims;
@@ -93,7 +93,7 @@ export function extractSagittalSlice(
 }
 
 export function extractSlice(
-  volume: NiftiVolume,
+  volume: ImageVolume,
   plane: SlicePlane,
   sliceIndex: number
 ): SliceData {
@@ -108,7 +108,7 @@ export function extractSlice(
 }
 
 export function getSliceCount(
-  volume: NiftiVolume,
+  volume: ImageVolume,
   plane: SlicePlane
 ): number {
   switch (plane) {
@@ -122,7 +122,7 @@ export function getSliceCount(
 }
 
 export function getSliceDimensions(
-  volume: NiftiVolume,
+  volume: ImageVolume,
   plane: SlicePlane
 ): { width: number; height: number } {
   switch (plane) {

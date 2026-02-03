@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { NiftiVolume } from '@/lib/nifti-viewer/parser';
+import { ImageVolume } from '@/lib/nifti-viewer/types';
 import {
   VoxelCoords,
   WorldCoords,
@@ -10,7 +10,7 @@ import {
 } from '@/lib/nifti-viewer/transforms';
 
 interface InfoPanelProps {
-  volume: NiftiVolume | null;
+  volume: ImageVolume | null;
   crosshairPosition: VoxelCoords | null;
 }
 
@@ -22,7 +22,7 @@ export default function InfoPanel({
     return (
       <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
         <h3 className="text-sm font-medium text-gray-200 mb-2">Info</h3>
-        <p className="text-xs text-gray-300">Load a NIfTI file to see info</p>
+        <p className="text-xs text-gray-300">Load a file to see info</p>
       </div>
     );
   }

@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { NiftiVolume } from '@/lib/nifti-viewer/parser';
+import { ImageVolume } from '@/lib/nifti-viewer/types';
 import { WindowLevel, ColorMap } from '@/lib/nifti-viewer/colorMaps';
 import { VoxelCoords } from '@/lib/nifti-viewer/transforms';
 import { getSliceCount } from '@/lib/nifti-viewer/slicing';
@@ -22,8 +22,8 @@ type ExpandedView = 'axial' | 'coronal' | 'sagittal' | '3d' | null;
 
 export default function NiftiViewerPage() {
   // Volume state
-  const [primaryVolume, setPrimaryVolume] = useState<NiftiVolume | null>(null);
-  const [overlayVolume, setOverlayVolume] = useState<NiftiVolume | null>(null);
+  const [primaryVolume, setPrimaryVolume] = useState<ImageVolume | null>(null);
+  const [overlayVolume, setOverlayVolume] = useState<ImageVolume | null>(null);
 
   // Slice navigation state
   const [sliceIndices, setSliceIndices] = useState<SliceIndices>({
@@ -65,7 +65,7 @@ export default function NiftiViewerPage() {
   }, [primaryVolume]);
 
   // Handle volume loading
-  const handlePrimaryLoad = useCallback((volume: NiftiVolume) => {
+  const handlePrimaryLoad = useCallback((volume: ImageVolume) => {
     setPrimaryVolume(volume);
     setWindowLevel({
       center: (volume.minValue + volume.maxValue) / 2,
@@ -73,7 +73,7 @@ export default function NiftiViewerPage() {
     });
   }, []);
 
-  const handleOverlayLoad = useCallback((volume: NiftiVolume) => {
+  const handleOverlayLoad = useCallback((volume: ImageVolume) => {
     setOverlayVolume(volume);
   }, []);
 
@@ -177,16 +177,16 @@ export default function NiftiViewerPage() {
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
             <div className="text-center mb-4">
               <h2 className="text-2xl font-semibold mb-2 text-white">
-                Upload NIfTI File
+                Upload NIfTI or DICOM Files
               </h2>
               <p className="text-gray-200 text-sm">
-                Supports .nii and .nii.gz formats
+                Supports .nii, .nii.gz, and DICOM (.dcm) formats
               </p>
             </div>
             <div className="w-full max-w-md">
               <FileUploader
                 onFileLoad={handlePrimaryLoad}
-                label="Drop your NIfTI file here"
+                label="Drop NIfTI or DICOM files here"
               />
             </div>
           </div>

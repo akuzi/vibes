@@ -1,12 +1,24 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
-import { parseNiftiFile, NiftiVolume } from '@/lib/nifti-viewer/parser';
+import React, { useCallback, useState, useRef } from 'react';
+import { parseNiftiFile } from '@/lib/nifti-viewer/parser';
+import { parseDicomFiles } from '@/lib/nifti-viewer/dicomParser';
+import { ImageVolume } from '@/lib/nifti-viewer/types';
 
 interface FileUploaderProps {
-  onFileLoad: (volume: NiftiVolume) => void;
+  onFileLoad: (volume: ImageVolume) => void;
   label: string;
   disabled?: boolean;
+}
+
+function isDicomFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith('.dcm') || name.endsWith('.dicom');
+}
+
+function isNiftiFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith('.nii') || name.endsWith('.nii.gz');
 }
 
 export default function FileUploader({
@@ -18,8 +30,9 @@ export default function FileUploader({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const dicomInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback(
+  const handleNiftiFile = useCallback(
     async (file: File) => {
       setError(null);
       setIsLoading(true);
@@ -39,6 +52,65 @@ export default function FileUploader({
       }
     },
     [onFileLoad]
+  );
+
+  const handleDicomFiles = useCallback(
+    async (files: File[]) => {
+      setError(null);
+      setIsLoading(true);
+
+      try {
+        const arrayBuffers = await Promise.all(
+          files.map((f) => f.arrayBuffer())
+        );
+        const volume = await parseDicomFiles(arrayBuffers);
+        setFileName(`${files.length} DICOM files`);
+        onFileLoad(volume);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to parse DICOM files'
+        );
+        setFileName(null);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [onFileLoad]
+  );
+
+  const handleFiles = useCallback(
+    async (fileList: FileList) => {
+      const files = Array.from(fileList);
+      if (files.length === 0) return;
+
+      // Single NIfTI file
+      if (files.length === 1 && isNiftiFile(files[0])) {
+        handleNiftiFile(files[0]);
+        return;
+      }
+
+      // DICOM files (single or multiple)
+      const dicomFiles = files.filter(
+        (f) => isDicomFile(f) || (!isNiftiFile(f) && files.length > 1)
+      );
+      if (dicomFiles.length > 0) {
+        handleDicomFiles(dicomFiles);
+        return;
+      }
+
+      // Single file that's not explicitly NIfTI — try NIfTI first, then DICOM
+      if (files.length === 1) {
+        try {
+          await handleNiftiFile(files[0]);
+        } catch {
+          handleDicomFiles(files);
+        }
+        return;
+      }
+
+      setError('Unsupported file format');
+    },
+    [handleNiftiFile, handleDicomFiles]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -63,24 +135,64 @@ export default function FileUploader({
 
       const files = e.dataTransfer.files;
       if (files.length > 0) {
-        handleFile(files[0]);
+        handleFiles(files);
       }
     },
-    [handleFile, disabled]
+    [handleFiles, disabled]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (files && files.length > 0) {
-        handleFile(files[0]);
+        handleFiles(files);
       }
     },
-    [handleFile]
+    [handleFiles]
+  );
+
+  const handleDicomFolderClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (disabled || isLoading) return;
+      dicomInputRef.current?.click();
+    },
+    [disabled, isLoading]
+  );
+
+  const handleDicomFolderInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const dicomFiles = Array.from(files).filter(
+          (f) => !f.name.startsWith('.') && f.name !== 'DICOMDIR'
+        );
+        if (dicomFiles.length > 0) {
+          handleDicomFiles(dicomFiles);
+        } else {
+          setError('No DICOM files found in the selected folder');
+        }
+      }
+    },
+    [handleDicomFiles]
   );
 
   return (
     <div className="w-full">
+      {/* Hidden folder input for DICOM */}
+      <input
+        ref={dicomInputRef}
+        type="file"
+        // @ts-expect-error webkitdirectory is a non-standard attribute
+        webkitdirectory=""
+        directory=""
+        multiple
+        onChange={handleDicomFolderInput}
+        disabled={disabled || isLoading}
+        className="hidden"
+      />
+
       <label
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -100,7 +212,8 @@ export default function FileUploader({
       >
         <input
           type="file"
-          accept=".nii,.nii.gz"
+          accept=".nii,.nii.gz,.dcm,.dicom"
+          multiple
           onChange={handleFileInput}
           disabled={disabled || isLoading}
           className="hidden"
@@ -139,11 +252,29 @@ export default function FileUploader({
           <div className="text-center">
             <span className="text-gray-200">{label}</span>
             <p className="text-gray-300 text-xs mt-1">
-              Drop .nii or .nii.gz file here
+              Drop .nii, .nii.gz, or .dcm files here
             </p>
           </div>
         )}
       </label>
+
+      {/* DICOM folder button */}
+      {!isLoading && (
+        <button
+          onClick={handleDicomFolderClick}
+          disabled={disabled}
+          className={`
+            mt-2 w-full text-xs py-1.5 rounded border transition-colors
+            ${
+              disabled
+                ? 'border-gray-700 text-gray-500 cursor-not-allowed'
+                : 'border-gray-600 text-gray-300 hover:text-white hover:border-gray-500 hover:bg-gray-800'
+            }
+          `}
+        >
+          Load DICOM folder
+        </button>
+      )}
 
       {error && (
         <p className="mt-2 text-red-400 text-sm">{error}</p>

@@ -1,4 +1,4 @@
-import { NiftiVolume } from './parser';
+import { ImageVolume } from './types';
 import { SlicePlane } from './slicing';
 
 export interface VoxelCoords {
@@ -66,7 +66,7 @@ export function worldToVoxel(
 }
 
 export function getVoxelValue(
-  volume: NiftiVolume,
+  volume: ImageVolume,
   voxel: VoxelCoords
 ): number | null {
   const { i, j, k } = voxel;
@@ -89,7 +89,7 @@ export function canvasToVoxel(
   sliceHeight: number,
   plane: SlicePlane,
   sliceIndex: number,
-  _volume: NiftiVolume
+  _volume: ImageVolume
 ): VoxelCoords {
   // Convert canvas coordinates to slice coordinates
   const scaleX = sliceWidth / canvasWidth;
@@ -130,7 +130,7 @@ export function canvasToVoxel(
 export function voxelToSliceCoords(
   voxel: VoxelCoords,
   plane: SlicePlane,
-  volume: NiftiVolume
+  volume: ImageVolume
 ): { x: number; y: number; sliceIndex: number } {
   const { i, j, k } = voxel;
   const [, dimY, dimZ] = volume.dims;

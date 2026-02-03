@@ -1,14 +1,10 @@
 import * as nifti from 'nifti-reader-js';
+import { ImageVolume } from './types';
 
-export interface NiftiVolume {
+export type { ImageVolume } from './types';
+
+export interface NiftiVolume extends ImageVolume {
   header: nifti.NIFTI1 | nifti.NIFTI2;
-  data: Float32Array;
-  dims: [number, number, number];
-  pixDims: [number, number, number];
-  affine: number[][];
-  dataType: string;
-  minValue: number;
-  maxValue: number;
 }
 
 type TypedArray =

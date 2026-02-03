@@ -3,11 +3,11 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three-stdlib';
-import { NiftiVolume } from '@/lib/nifti-viewer/parser';
+import { ImageVolume } from '@/lib/nifti-viewer/types';
 import { ColorMap, applyColorMap } from '@/lib/nifti-viewer/colorMaps';
 
 interface VolumeRendererProps {
-  volume: NiftiVolume;
+  volume: ImageVolume;
   enabled: boolean;
   renderMode: 'mip' | 'isosurface';
   colorMap: ColorMap;
@@ -188,7 +188,7 @@ export default function VolumeRenderer({
 
   // Create 3D texture from volume data
   const createVolumeTexture = useCallback(
-    (vol: NiftiVolume): THREE.Data3DTexture => {
+    (vol: ImageVolume): THREE.Data3DTexture => {
       const [dimX, dimY, dimZ] = vol.dims;
 
       // Normalize data to 0-1 range

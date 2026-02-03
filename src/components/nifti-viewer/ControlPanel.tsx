@@ -7,10 +7,10 @@ import {
   WINDOW_PRESETS,
   COLOR_MAP_OPTIONS,
 } from '@/lib/nifti-viewer/colorMaps';
-import { NiftiVolume } from '@/lib/nifti-viewer/parser';
+import { ImageVolume } from '@/lib/nifti-viewer/types';
 
 interface ControlPanelProps {
-  volume: NiftiVolume | null;
+  volume: ImageVolume | null;
   windowLevel: WindowLevel;
   onWindowLevelChange: (wl: WindowLevel) => void;
   overlayOpacity: number;
