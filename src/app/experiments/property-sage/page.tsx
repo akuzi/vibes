@@ -37,7 +37,7 @@ const bedroomOptions: { value: BedroomFilter; label: string }[] = [
   { value: "5+", label: "5+ Bed" },
 ];
 
-const overlayOptions: { value: OverlayType; label: string }[] = [
+const _overlayOptions: { value: OverlayType; label: string }[] = [
   { value: "price", label: "Sale Price" },
   { value: "rental", label: "Weekly Rent" },
   { value: "yield", label: "Rental Yield" },
@@ -87,7 +87,7 @@ export default function PropertySageExperiment() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bedroomFilter, setBedroomFilter] = useState<BedroomFilter>("all");
-  const [overlayType, setOverlayType] = useState<OverlayType>("price");
+  const [_overlayType, _setOverlayType] = useState<OverlayType>("price");
 
   // Fetch suburb data from API
   useEffect(() => {
