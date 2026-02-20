@@ -14,6 +14,9 @@ interface VolumeRendererProps {
   overlay?: ImageVolume;
   overlayColorMap?: ColorMap;
   overlayOpacity?: number;
+  overlayFlipHorizontal?: boolean;
+  overlayFlipVertical?: boolean;
+  overlayFlipDepth?: boolean;
 }
 
 // Vertex shader for ray marching
@@ -42,6 +45,7 @@ const fragmentShaderMIP = `
   uniform sampler2D uOverlayColorMap;
   uniform float uOverlayOpacity;
   uniform bool uHasOverlay;
+  uniform vec3 uOverlayFlip;
 
   varying vec3 vOrigin;
   varying vec3 vDirection;
@@ -64,7 +68,13 @@ const fragmentShaderMIP = `
   }
 
   float sampleOverlay(vec3 p) {
-    return texture(uOverlay, p + 0.5).r;
+    // Apply flip: multiply coordinates by flip vector, then offset to [0,1] range
+    vec3 flipped = vec3(
+      p.x * uOverlayFlip.x,
+      p.y * uOverlayFlip.y,
+      p.z * uOverlayFlip.z
+    );
+    return texture(uOverlay, flipped + 0.5).r;
   }
 
   vec3 applyColorMap(float value) {
@@ -124,6 +134,7 @@ const fragmentShaderIso = `
   uniform sampler2D uOverlayColorMap;
   uniform float uOverlayOpacity;
   uniform bool uHasOverlay;
+  uniform vec3 uOverlayFlip;
 
   varying vec3 vOrigin;
   varying vec3 vDirection;
@@ -146,7 +157,13 @@ const fragmentShaderIso = `
   }
 
   float sampleOverlay(vec3 p) {
-    return texture(uOverlay, p + 0.5).r;
+    // Apply flip: multiply coordinates by flip vector, then offset to [0,1] range
+    vec3 flipped = vec3(
+      p.x * uOverlayFlip.x,
+      p.y * uOverlayFlip.y,
+      p.z * uOverlayFlip.z
+    );
+    return texture(uOverlay, flipped + 0.5).r;
   }
 
   vec3 getNormal(vec3 p) {
@@ -224,6 +241,9 @@ export default function VolumeRenderer({
   overlay,
   overlayColorMap = 'jet',
   overlayOpacity = 0.5,
+  overlayFlipHorizontal = false,
+  overlayFlipVertical = false,
+   overlayFlipDepth = false,
 }: VolumeRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -349,6 +369,26 @@ export default function VolumeRenderer({
     const overlayColorMapTexture = createColorMapTexture(overlayColorMap);
     overlayColorMapTextureRef.current = overlayColorMapTexture;
 
+    // For 3D view, apply manual flips directly per axis
+    let flipX = 1;
+    let flipY = 1;
+    let flipZ = 1;
+    
+    // Horizontal flip -> X
+    if (overlayFlipHorizontal) {
+      flipX = -1;
+    }
+    // Vertical flip -> Y
+    if (overlayFlipVertical) {
+      flipY = -1;
+    }
+    // Depth flip -> Z
+    if (overlayFlipDepth) {
+      flipZ = -1;
+    }
+    
+    const overlayFlip = new THREE.Vector3(flipX, flipY, flipZ);
+
     // Create volume mesh
     const geometry = new THREE.BoxGeometry(1, 1, 1);
     const material = new THREE.ShaderMaterial({
@@ -363,6 +403,7 @@ export default function VolumeRenderer({
         uOverlayColorMap: { value: overlayColorMapTexture },
         uOverlayOpacity: { value: overlayOpacity },
         uHasOverlay: { value: !!overlay },
+        uOverlayFlip: { value: overlayFlip },
       },
       vertexShader,
       fragmentShader: renderMode === 'mip' ? fragmentShaderMIP : fragmentShaderIso,
@@ -421,7 +462,7 @@ export default function VolumeRenderer({
       overlayTextureRef.current = null;
       overlayColorMapTextureRef.current = null;
     };
-  }, [enabled, volume, overlay, createVolumeTexture, createColorMapTexture, renderMode, colorMap, overlayColorMap, overlayOpacity]);
+  }, [enabled, volume, overlay, createVolumeTexture, createColorMapTexture, renderMode, colorMap, overlayColorMap, overlayOpacity, overlayFlipHorizontal, overlayFlipVertical, overlayFlipDepth]);
 
   // Update shader when render mode changes
   useEffect(() => {
@@ -462,6 +503,27 @@ export default function VolumeRenderer({
       meshRef.current.material.uniforms.uOverlayOpacity.value = overlayOpacity;
     }
   }, [overlayOpacity]);
+
+  // Update overlay flip uniform reactively when flip props change
+  useEffect(() => {
+    if (meshRef.current && meshRef.current.material instanceof THREE.ShaderMaterial && overlay) {
+      let flipX = 1;
+      let flipY = 1;
+      let flipZ = 1;
+      
+      if (overlayFlipHorizontal) {
+        flipX = -1;
+      }
+      if (overlayFlipVertical) {
+        flipY = -1;
+      }
+      if (overlayFlipDepth) {
+        flipZ = -1;
+      }
+      
+      meshRef.current.material.uniforms.uOverlayFlip.value = new THREE.Vector3(flipX, flipY, flipZ);
+    }
+  }, [volume, overlay, overlayFlipHorizontal, overlayFlipVertical, overlayFlipDepth]);
 
   // Auto-rotate state
   const [autoRotateAxis, setAutoRotateAxis] = useState<'x' | 'y' | 'z' | null>(null);

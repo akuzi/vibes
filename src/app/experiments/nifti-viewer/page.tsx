@@ -40,6 +40,9 @@ export default function NiftiViewerPage() {
   const [overlayOpacity, setOverlayOpacity] = useState(0.5);
   const [overlayColorMap, setOverlayColorMap] = useState<ColorMap>('jet');
   const [primaryColorMap, setPrimaryColorMap] = useState<ColorMap>('grayscale');
+  const [overlayFlipHorizontal, setOverlayFlipHorizontal] = useState(false);
+  const [overlayFlipVertical, setOverlayFlipVertical] = useState(false);
+  const [overlayFlipDepth, setOverlayFlipDepth] = useState(false);
 
   // 3D view state
   const [show3D, setShow3D] = useState(true);
@@ -62,6 +65,52 @@ export default function NiftiViewerPage() {
         sagittal: Math.floor(getSliceCount(primaryVolume, 'sagittal') / 2),
       });
     }
+  }, [primaryVolume]);
+
+  // Auto-detect overlay orientation when both volumes are present
+  useEffect(() => {
+    if (primaryVolume && overlayVolume) {
+      // Check if X-axis direction (first column of affine) has opposite orientation
+      // Compare the dominant component of the X direction vector
+      const primaryXVec = [
+        primaryVolume.affine[0][0],
+        primaryVolume.affine[1][0],
+        primaryVolume.affine[2][0],
+      ];
+      const overlayXVec = [
+        overlayVolume.affine[0][0],
+        overlayVolume.affine[1][0],
+        overlayVolume.affine[2][0],
+      ];
+      
+      // Find the dominant component (largest absolute value)
+      const primaryMaxIdx = primaryXVec.reduce(
+        (maxIdx, val, idx) => (Math.abs(val) > Math.abs(primaryXVec[maxIdx]) ? idx : maxIdx),
+        0
+      );
+      const overlayMaxIdx = overlayXVec.reduce(
+        (maxIdx, val, idx) => (Math.abs(val) > Math.abs(overlayXVec[maxIdx]) ? idx : maxIdx),
+        0
+      );
+      
+      // If dominant components have opposite signs, we likely need a horizontal flip
+      const needsHorizontalFlip = 
+        primaryMaxIdx === overlayMaxIdx && // Same axis is dominant
+        Math.abs(primaryXVec[primaryMaxIdx]) > 0.001 &&
+        Math.abs(overlayXVec[overlayMaxIdx]) > 0.001 &&
+        Math.sign(primaryXVec[primaryMaxIdx]) !== Math.sign(overlayXVec[overlayMaxIdx]);
+      
+      if (needsHorizontalFlip && !overlayFlipHorizontal) {
+        setOverlayFlipHorizontal(true);
+      }
+    }
+  }, [primaryVolume, overlayVolume, overlayFlipHorizontal]);
+
+  // Reset flip state when primary volume changes
+  useEffect(() => {
+    setOverlayFlipHorizontal(false);
+    setOverlayFlipVertical(false);
+    setOverlayFlipDepth(false);
   }, [primaryVolume]);
 
   // Handle volume loading
@@ -248,6 +297,8 @@ export default function NiftiViewerPage() {
                           windowLevel={windowLevel}
                           overlayColorMap={overlayColorMap}
                           overlayOpacity={overlayOpacity}
+                          overlayFlipHorizontal={overlayFlipHorizontal}
+                          overlayFlipVertical={overlayFlipVertical}
                           crosshairPosition={crosshairPosition}
                           onCrosshairMove={handleCrosshairMove}
                           onSliceChange={handleAxialChange}
@@ -266,6 +317,8 @@ export default function NiftiViewerPage() {
                           windowLevel={windowLevel}
                           overlayColorMap={overlayColorMap}
                           overlayOpacity={overlayOpacity}
+                          overlayFlipHorizontal={overlayFlipHorizontal}
+                          overlayFlipVertical={overlayFlipVertical}
                           crosshairPosition={crosshairPosition}
                           onCrosshairMove={handleCrosshairMove}
                           onSliceChange={handleCoronalChange}
@@ -284,6 +337,8 @@ export default function NiftiViewerPage() {
                           windowLevel={windowLevel}
                           overlayColorMap={overlayColorMap}
                           overlayOpacity={overlayOpacity}
+                          overlayFlipHorizontal={overlayFlipHorizontal}
+                          overlayFlipVertical={overlayFlipVertical}
                           crosshairPosition={crosshairPosition}
                           onCrosshairMove={handleCrosshairMove}
                           onSliceChange={handleSagittalChange}
@@ -301,6 +356,8 @@ export default function NiftiViewerPage() {
                         overlay={overlayVolume || undefined}
                         overlayColorMap={overlayColorMap}
                         overlayOpacity={overlayOpacity}
+                        overlayFlipHorizontal={overlayFlipHorizontal}
+                        overlayFlipVertical={overlayFlipVertical}
                       />
                     </div>
                   )}
@@ -322,6 +379,8 @@ export default function NiftiViewerPage() {
                         windowLevel={windowLevel}
                         overlayColorMap={overlayColorMap}
                         overlayOpacity={overlayOpacity}
+                        overlayFlipHorizontal={overlayFlipHorizontal}
+                        overlayFlipVertical={overlayFlipVertical}
                         crosshairPosition={crosshairPosition}
                         onCrosshairMove={handleCrosshairMove}
                         onSliceChange={handleAxialChange}
@@ -345,6 +404,8 @@ export default function NiftiViewerPage() {
                         windowLevel={windowLevel}
                         overlayColorMap={overlayColorMap}
                         overlayOpacity={overlayOpacity}
+                        overlayFlipHorizontal={overlayFlipHorizontal}
+                        overlayFlipVertical={overlayFlipVertical}
                         crosshairPosition={crosshairPosition}
                         onCrosshairMove={handleCrosshairMove}
                         onSliceChange={handleCoronalChange}
@@ -368,6 +429,8 @@ export default function NiftiViewerPage() {
                         windowLevel={windowLevel}
                         overlayColorMap={overlayColorMap}
                         overlayOpacity={overlayOpacity}
+                        overlayFlipHorizontal={overlayFlipHorizontal}
+                        overlayFlipVertical={overlayFlipVertical}
                         crosshairPosition={crosshairPosition}
                         onCrosshairMove={handleCrosshairMove}
                         onSliceChange={handleSagittalChange}
@@ -394,6 +457,9 @@ export default function NiftiViewerPage() {
                       overlay={overlayVolume || undefined}
                       overlayColorMap={overlayColorMap}
                       overlayOpacity={overlayOpacity}
+                      overlayFlipHorizontal={overlayFlipHorizontal}
+                      overlayFlipVertical={overlayFlipVertical}
+                      overlayFlipDepth={overlayFlipDepth}
                     />
                     <button
                       onClick={() => setExpandedView('3d')}
@@ -417,6 +483,12 @@ export default function NiftiViewerPage() {
                     onOverlayOpacityChange={setOverlayOpacity}
                     overlayColorMap={overlayColorMap}
                     onOverlayColorMapChange={setOverlayColorMap}
+                    overlayFlipHorizontal={overlayFlipHorizontal}
+                    onOverlayFlipHorizontalChange={setOverlayFlipHorizontal}
+                    overlayFlipVertical={overlayFlipVertical}
+                    onOverlayFlipVerticalChange={setOverlayFlipVertical}
+                    overlayFlipDepth={overlayFlipDepth}
+                    onOverlayFlipDepthChange={setOverlayFlipDepth}
                     primaryColorMap={primaryColorMap}
                     onPrimaryColorMapChange={setPrimaryColorMap}
                     show3D={show3D}

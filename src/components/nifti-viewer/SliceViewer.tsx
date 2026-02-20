@@ -20,6 +20,31 @@ import {
   voxelToSliceCoords,
 } from '@/lib/nifti-viewer/transforms';
 
+// Simple image-space flip helper used for manual overlay orientation tweaks
+function flipSliceData(
+  sliceData: Float32Array,
+  width: number,
+  height: number,
+  flipHorizontal: boolean,
+  flipVertical: boolean
+): Float32Array {
+  if (!flipHorizontal && !flipVertical) return sliceData;
+
+  const flipped = new Float32Array(sliceData.length);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const srcIdx = x + y * width;
+      const dstX = flipHorizontal ? width - 1 - x : x;
+      const dstY = flipVertical ? height - 1 - y : y;
+      const dstIdx = dstX + dstY * width;
+      flipped[dstIdx] = sliceData[srcIdx];
+    }
+  }
+
+  return flipped;
+}
+
 interface SliceViewerProps {
   volume: ImageVolume;
   overlay?: ImageVolume;
@@ -28,6 +53,9 @@ interface SliceViewerProps {
   windowLevel: WindowLevel;
   overlayColorMap: ColorMap;
   overlayOpacity: number;
+  // Manual overlay orientation controls (image-space)
+  overlayFlipHorizontal?: boolean;
+  overlayFlipVertical?: boolean;
   crosshairPosition: VoxelCoords | null;
   onCrosshairMove: (voxel: VoxelCoords) => void;
   onSliceChange: (index: number) => void;
@@ -47,6 +75,8 @@ export default function SliceViewer({
   windowLevel,
   overlayColorMap,
   overlayOpacity,
+  overlayFlipHorizontal = false,
+  overlayFlipVertical = false,
   crosshairPosition,
   onCrosshairMove,
   onSliceChange,
@@ -101,6 +131,7 @@ export default function SliceViewer({
     // Render overlay if present
     if (overlay && overlayOpacity > 0) {
       const overlaySlice = extractSlice(overlay, plane, sliceIndex);
+      
       const overlayWindowLevel: WindowLevel = {
         center: (overlay.minValue + overlay.maxValue) / 2,
         width: overlay.maxValue - overlay.minValue,
@@ -111,8 +142,16 @@ export default function SliceViewer({
         overlaySlice.height
       );
 
-      for (let i = 0; i < overlaySlice.data.length; i++) {
-        const value = overlaySlice.data[i];
+      const overlayData = flipSliceData(
+        overlaySlice.data,
+        overlaySlice.width,
+        overlaySlice.height,
+        overlayFlipHorizontal,
+        overlayFlipVertical
+      );
+
+      for (let i = 0; i < overlayData.length; i++) {
+        const value = overlayData[i];
         // Only show overlay where value is non-zero
         if (value > overlay.minValue) {
           const normalized = applyWindowLevel(value, overlayWindowLevel);

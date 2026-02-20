@@ -183,20 +183,20 @@ function computeAffine(
 
   return [
     [
-      rowCos[0] * pixelSpacing[1],
-      colCos[0] * pixelSpacing[0],
+      colCos[0] * pixelSpacing[1], // Column direction (X) * column spacing
+      rowCos[0] * pixelSpacing[0], // Row direction (Y) * row spacing
       sliceNormal[0] * sliceSpacing,
       origin[0],
     ],
     [
-      rowCos[1] * pixelSpacing[1],
-      colCos[1] * pixelSpacing[0],
+      colCos[1] * pixelSpacing[1], // Column direction (X) * column spacing
+      rowCos[1] * pixelSpacing[0], // Row direction (Y) * row spacing
       sliceNormal[1] * sliceSpacing,
       origin[1],
     ],
     [
-      rowCos[2] * pixelSpacing[1],
-      colCos[2] * pixelSpacing[0],
+      colCos[2] * pixelSpacing[1], // Column direction (X) * column spacing
+      rowCos[2] * pixelSpacing[0], // Row direction (Y) * row spacing
       sliceNormal[2] * sliceSpacing,
       origin[2],
     ],

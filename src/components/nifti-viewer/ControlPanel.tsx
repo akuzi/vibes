@@ -17,6 +17,12 @@ interface ControlPanelProps {
   onOverlayOpacityChange: (opacity: number) => void;
   overlayColorMap: ColorMap;
   onOverlayColorMapChange: (colorMap: ColorMap) => void;
+  overlayFlipHorizontal: boolean;
+  onOverlayFlipHorizontalChange: (value: boolean) => void;
+  overlayFlipVertical: boolean;
+  onOverlayFlipVerticalChange: (value: boolean) => void;
+  overlayFlipDepth: boolean;
+  onOverlayFlipDepthChange: (value: boolean) => void;
   primaryColorMap: ColorMap;
   onPrimaryColorMapChange: (colorMap: ColorMap) => void;
   show3D: boolean;
@@ -33,6 +39,12 @@ export default function ControlPanel({
   onOverlayOpacityChange,
   overlayColorMap,
   onOverlayColorMapChange,
+  overlayFlipHorizontal,
+  onOverlayFlipHorizontalChange,
+  overlayFlipVertical,
+  onOverlayFlipVerticalChange,
+  overlayFlipDepth,
+  onOverlayFlipDepthChange,
   primaryColorMap,
   onPrimaryColorMapChange,
   show3D,
@@ -154,6 +166,36 @@ export default function ControlPanel({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 text-xs text-gray-300">
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={overlayFlipHorizontal}
+                onChange={(e) => onOverlayFlipHorizontalChange(e.target.checked)}
+                className="w-3.5 h-3.5 bg-gray-800 rounded border-gray-600 text-blue-400 focus:ring-blue-400 focus:ring-offset-gray-900"
+              />
+              <span>Flip horizontal</span>
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={overlayFlipVertical}
+                onChange={(e) => onOverlayFlipVerticalChange(e.target.checked)}
+                className="w-3.5 h-3.5 bg-gray-800 rounded border-gray-600 text-blue-400 focus:ring-blue-400 focus:ring-offset-gray-900"
+              />
+              <span>Flip vertical</span>
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={overlayFlipDepth}
+                onChange={(e) => onOverlayFlipDepthChange(e.target.checked)}
+                className="w-3.5 h-3.5 bg-gray-800 rounded border-gray-600 text-blue-400 focus:ring-blue-400 focus:ring-offset-gray-900"
+              />
+              <span>Flip depth (3D Z)</span>
+            </label>
           </div>
         </div>
       </div>
