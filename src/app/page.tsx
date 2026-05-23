@@ -17,7 +17,8 @@ export default function Home() {
     'voice-chat': "Talk to OpenAI using your voice. Speak naturally, get AI responses, and hear them read back to you using text-to-speech.",
     'speaking-avatar': "Watch an animated avatar lip-sync to text in real-time.",
     crochet: "Create and animate crochet patterns stitch-by-stitch. Watch cute amigurumi animals and patterns come to life with realistic crochet stitches.",
-    'nifti-viewer': "View Neuroimaging data in 3D. Upload a NIfTI file and explore the brain in 3D."
+    'nifti-viewer': "View Neuroimaging data in 3D. Upload a NIfTI file and explore the brain in 3D.",
+    flatland: "Explore Edwin Abbott Abbott's Flatland. Watch characters from the novel move through 1D, 2D, and 3D space — see how shape and form are projected across dimensions.",
 };
 
   return (
@@ -156,6 +157,17 @@ export default function Home() {
                         <p>
                             <span className="text-blue-400">[12]</span>
                             <span className="text-white ml-4">Neuroimaging Viewer</span>
+                        </p>
+                    </Link>
+                    <Link
+                        href="/experiments/flatland"
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('flatland')}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[13]</span>
+                            <span className="text-white ml-4">Flatland</span>
                         </p>
                     </Link>
                 </div>
