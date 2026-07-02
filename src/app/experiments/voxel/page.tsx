@@ -45,7 +45,6 @@ export default function VoxelExperiment() {
   
   const keysRef = useRef<Set<string>>(new Set());
   const isPointerLockedRef = useRef(false);
-  const lastCameraUpdateRef = useRef<number>(0);
 
   // Load CSV elevation data
   useEffect(() => {
@@ -129,43 +128,65 @@ export default function VoxelExperiment() {
     voxelGroupRef.current = voxelGroup;
     scene.add(voxelGroup);
 
-    // Create voxel meshes from elevation data with stacking and color bands
-    const maxVoxelsToRender = 100000; // Increased limit for more map coverage
-    let renderedVoxels = 0;
-    for (let y = 6; y < elevationData.length; y++) {
+    // Build all voxels as a single InstancedMesh (one draw call) instead of
+    // one Mesh + geometry + material per voxel.
+    const startRow = 6;
+    const bandGrid = elevationData.map(row => row.map(getBandIndex));
+
+    // A voxel below the top of its column is only visible if an adjacent
+    // column is shorter than it (i.e. its side face is exposed).
+    const isExposed = (x: number, y: number, band: number) => {
+      if (band === bandGrid[y][x]) return true;
+      const neighbors = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]];
+      for (const [nx, ny] of neighbors) {
+        if (ny < startRow || ny >= bandGrid.length) return true;
+        if (nx < 0 || nx >= bandGrid[ny].length) return true;
+        if (bandGrid[ny][nx] < band) return true;
+      }
+      return false;
+    };
+
+    const maxVoxelsToRender = 100000;
+    const positions: { x: number; y: number; band: number }[] = [];
+    outer:
+    for (let y = startRow; y < elevationData.length; y++) {
       const row = elevationData[y];
       for (let x = 0; x < row.length; x++) {
-        const elevation = row[x];
-        const bandIndex = getBandIndex(elevation);
+        const bandIndex = bandGrid[y][x];
         for (let band = 0; band <= bandIndex; band++) {
-          if (renderedVoxels >= maxVoxelsToRender) break;
-          const color = colorScale[band].color;
-          const geometry = new THREE.BoxGeometry(1, 1, 1);
-          const material = new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.9 });
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.set(
-            x - (row.length / 2), // Center the grid
-            band + 0.5, // Stack vertically by band
-            y - (elevationData.length / 2)
-          );
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          voxelGroup.add(mesh);
-          renderedVoxels++;
+          if (!isExposed(x, y, band)) continue;
+          positions.push({ x, y, band });
+          if (positions.length >= maxVoxelsToRender) break outer;
         }
-        if (renderedVoxels >= maxVoxelsToRender) break;
       }
-      if (renderedVoxels >= maxVoxelsToRender) break;
     }
+
+    const voxelGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const voxelMaterial = new THREE.MeshLambertMaterial();
+    const voxelMesh = new THREE.InstancedMesh(voxelGeometry, voxelMaterial, positions.length);
+    const bandColors = colorScale.map(band => new THREE.Color(band.color));
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < positions.length; i++) {
+      const { x, y, band } = positions[i];
+      matrix.setPosition(
+        x - (elevationData[y].length / 2), // Center the grid
+        band + 0.5, // Stack vertically by band
+        y - (elevationData.length / 2)
+      );
+      voxelMesh.setMatrixAt(i, matrix);
+      voxelMesh.setColorAt(i, bandColors[band]);
+    }
+    voxelMesh.castShadow = true;
+    voxelMesh.receiveShadow = true;
+    voxelGroup.add(voxelMesh);
 
     // Pointer lock controls
     const handlePointerLockChange = () => {
       isPointerLockedRef.current = document.pointerLockElement === renderer.domElement;
-      console.log('Pointer lock changed:', isPointerLockedRef.current);
     };
 
     const handlePointerLockError = () => {
-      console.log('Pointer lock failed');
+      console.warn('Pointer lock failed');
     };
 
     document.addEventListener('pointerlockchange', handlePointerLockChange);
@@ -185,95 +206,56 @@ export default function VoxelExperiment() {
 
     // Keyboard controls
     const handleKeyDown = (event: KeyboardEvent) => {
-      console.log('KeyDown event:', event.code, 'target:', event.target);
       keysRef.current.add(event.code);
-      console.log('Key pressed:', event.code);
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      console.log('KeyUp event:', event.code, 'target:', event.target);
       keysRef.current.delete(event.code);
     };
 
-    // Add listeners to both document and window to ensure they work
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
 
     // Click to start flying
     const handleClick = () => {
       if (!isPointerLockedRef.current) {
         renderer.domElement.requestPointerLock();
         isFlyingRef.current = true;
-        console.log('Flying mode activated');
       }
     };
 
     renderer.domElement.addEventListener('click', handleClick);
 
     // Animation loop
+    const clock = new THREE.Clock();
     const animate = () => {
       requestAnimationFrame(animate);
-
-      // Debug: log isFlying state periodically
-      if (Math.random() < 0.01) { // Log ~1% of the time
-        console.log('Animation loop - isFlying:', isFlyingRef.current, 'keys:', Array.from(keysRef.current));
-      }
+      const delta = Math.min(clock.getDelta(), 0.1);
 
       // Movement controls - work even without pointer lock for testing
       if (isFlyingRef.current) {
-        const moveSpeed = 5; // Increased multiplier to make movement more noticeable
-        let moved = false;
-        
-        // Debug key states
-        if (keysRef.current.size > 0) {
-          console.log('Active keys:', Array.from(keysRef.current));
-        }
-        
-        // Simple direct movement for testing
+        // Delta-time based so speed is the same regardless of frame rate
+        const moveSpeed = 300 * delta;
+
         if (keysRef.current.has('KeyW') || keysRef.current.has('ArrowUp')) {
           camera.position.z -= moveSpeed;
-          moved = true;
-          console.log('Moving forward, new Z:', camera.position.z);
         }
         if (keysRef.current.has('KeyS') || keysRef.current.has('ArrowDown')) {
           camera.position.z += moveSpeed;
-          moved = true;
-          console.log('Moving backward, new Z:', camera.position.z);
         }
         if (keysRef.current.has('KeyA') || keysRef.current.has('ArrowLeft')) {
           camera.position.x -= moveSpeed;
-          moved = true;
-          console.log('Moving left, new X:', camera.position.x);
         }
         if (keysRef.current.has('KeyD') || keysRef.current.has('ArrowRight')) {
           camera.position.x += moveSpeed;
-          moved = true;
-          console.log('Moving right, new X:', camera.position.x);
         }
         if (keysRef.current.has('Space')) {
           camera.position.y += moveSpeed;
-          moved = true;
-          console.log('Moving up, new Y:', camera.position.y);
         }
         if (keysRef.current.has('ShiftLeft')) {
           camera.position.y -= moveSpeed;
-          moved = true;
-          console.log('Moving down, new Y:', camera.position.y);
-        }
-        
-        if (moved) {
-          console.log('Camera moved to:', camera.position);
-        }
-      } else {
-        // Debug: log when not flying
-        if (keysRef.current.size > 0) {
-          console.log('Keys pressed but not flying. isFlying:', isFlyingRef.current);
         }
       }
-
-      maybeUpdateCameraPosition(camera);
 
       renderer.render(scene, camera);
     };
@@ -300,25 +282,18 @@ export default function VoxelExperiment() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
       renderer.domElement.removeEventListener('click', handleClick);
-      
+
       if (currentMount.contains(renderer.domElement)) {
         currentMount.removeChild(renderer.domElement);
       }
-      
+
+      voxelGeometry.dispose();
+      voxelMaterial.dispose();
+      voxelMesh.dispose();
       renderer.dispose();
     };
   }, [elevationData, isLoading]);
-
-  function maybeUpdateCameraPosition(camera: THREE.PerspectiveCamera) {
-    const now = Date.now();
-    if (now - lastCameraUpdateRef.current > 200) {
-      console.log('Camera position updated:', camera.position);
-      lastCameraUpdateRef.current = now;
-    }
-  }
 
   return (
     <div className="flex flex-col h-screen bg-black">
@@ -347,12 +322,10 @@ export default function VoxelExperiment() {
       </div>
 
       {/* 3D Scene */}
-      <div 
-        ref={mountRef} 
-        className="flex-1 cursor-crosshair relative" 
+      <div
+        ref={mountRef}
+        className="flex-1 cursor-crosshair relative"
         tabIndex={0}
-        onFocus={() => console.log('3D scene focused')}
-        onBlur={() => console.log('3D scene lost focus')}
       >
         {/* Australia Image Overlay */}
         <div className="absolute top-4 right-4 z-10">

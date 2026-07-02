@@ -233,6 +233,113 @@ function projExtent(
   return [Math.min(...xs), Math.max(...xs)];
 }
 
+interface ColShape {
+  verts: [number, number][] | null;
+  center: [number, number];
+  radius: number;
+  isCircle: boolean;
+}
+
+function buildColShape(def: ShapeDef, inst: ShapeInst, W: number, H: number): ColShape {
+  const scale = Math.min(W, H);
+  const cx = inst.nx * W;
+  const cy = inst.ny * H;
+  const sz = inst.size * scale;
+
+  if (def.sides === 0) {
+    const r = Math.max(4, sz * (0.5 + 0.5 * Math.sin(inst.spherePhase)));
+    return { verts: null, center: [cx, cy], radius: r, isCircle: true };
+  }
+
+  let verts: [number, number][];
+  if (def.sides === 2) {
+    const hw = sz, hh = sz * 0.06;
+    const cos = Math.cos(inst.rotation), sin = Math.sin(inst.rotation);
+    verts = [
+      [cx - hw * cos + hh * sin, cy - hw * sin - hh * cos],
+      [cx + hw * cos + hh * sin, cy + hw * sin - hh * cos],
+      [cx + hw * cos - hh * sin, cy + hw * sin + hh * cos],
+      [cx - hw * cos - hh * sin, cy - hw * sin + hh * cos],
+    ];
+  } else {
+    const raw = polyVerts(def, sz, inst.rotation);
+    verts = raw.map(([vx, vy]): [number, number] => [cx + vx, cy + vy]);
+  }
+  return { verts, center: [cx, cy], radius: sz, isCircle: false };
+}
+
+function satPolyPoly(
+  vertsA: [number, number][],
+  vertsB: [number, number][]
+): { depth: number; axis: [number, number] } | null {
+  let minDepth = Infinity;
+  let minAxis: [number, number] = [1, 0];
+  for (const verts of [vertsA, vertsB]) {
+    for (let i = 0; i < verts.length; i++) {
+      const [x1, y1] = verts[i];
+      const [x2, y2] = verts[(i + 1) % verts.length];
+      const ex = x2 - x1, ey = y2 - y1;
+      const len = Math.sqrt(ex * ex + ey * ey);
+      if (len < 0.001) continue;
+      const ax = -ey / len, ay = ex / len;
+      let minA = Infinity, maxA = -Infinity;
+      for (const [x, y] of vertsA) { const p = x * ax + y * ay; if (p < minA) minA = p; if (p > maxA) maxA = p; }
+      let minB = Infinity, maxB = -Infinity;
+      for (const [x, y] of vertsB) { const p = x * ax + y * ay; if (p < minB) minB = p; if (p > maxB) maxB = p; }
+      const depth = Math.min(maxA, maxB) - Math.max(minA, minB);
+      if (depth <= 0) return null;
+      if (depth < minDepth) { minDepth = depth; minAxis = [ax, ay]; }
+    }
+  }
+  return { depth: minDepth, axis: minAxis };
+}
+
+function satCirclePoly(
+  circle: ColShape,
+  poly: ColShape
+): { depth: number; axis: [number, number] } | null {
+  const verts = poly.verts!;
+  const [cx, cy] = circle.center;
+  const r = circle.radius;
+  let minDepth = Infinity;
+  let minAxis: [number, number] = [1, 0];
+
+  for (let i = 0; i < verts.length; i++) {
+    const [x1, y1] = verts[i];
+    const [x2, y2] = verts[(i + 1) % verts.length];
+    const ex = x2 - x1, ey = y2 - y1;
+    const len = Math.sqrt(ex * ex + ey * ey);
+    if (len < 0.001) continue;
+    const ax = -ey / len, ay = ex / len;
+    let minP = Infinity, maxP = -Infinity;
+    for (const [x, y] of verts) { const p = x * ax + y * ay; if (p < minP) minP = p; if (p > maxP) maxP = p; }
+    const cp = cx * ax + cy * ay;
+    const depth = Math.min(maxP, cp + r) - Math.max(minP, cp - r);
+    if (depth <= 0) return null;
+    if (depth < minDepth) { minDepth = depth; minAxis = [ax, ay]; }
+  }
+
+  // Nearest-vertex axis (handles circle hitting a corner)
+  let nearDist = Infinity, nearX = verts[0][0], nearY = verts[0][1];
+  for (const [x, y] of verts) {
+    const d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+    if (d < nearDist) { nearDist = d; nearX = x; nearY = y; }
+  }
+  const dvx = nearX - cx, dvy = nearY - cy;
+  const dlen = Math.sqrt(dvx * dvx + dvy * dvy);
+  if (dlen > 0.001) {
+    const ax = dvx / dlen, ay = dvy / dlen;
+    let minP = Infinity, maxP = -Infinity;
+    for (const [x, y] of verts) { const p = x * ax + y * ay; if (p < minP) minP = p; if (p > maxP) maxP = p; }
+    const cp = cx * ax + cy * ay;
+    const depth = Math.min(maxP, cp + r) - Math.max(minP, cp - r);
+    if (depth <= 0) return null;
+    if (depth < minDepth) { minDepth = depth; minAxis = [ax, ay]; }
+  }
+
+  return { depth: minDepth, axis: minAxis };
+}
+
 function mkThreeGeo(def: ShapeDef, sz: number): THREE.BufferGeometry {
   if (def.sides === 0) return new THREE.SphereGeometry(sz, 32, 32);
 
@@ -336,15 +443,16 @@ function ShapeCard({
 }
 
 export default function FlatlandPage() {
-  const [dimension, setDimension] = useState<Dimension>('2D');
+  const [dimension, setDimension] = useState<Dimension>('1D');
   const [activeShapeId, setActiveShapeId] = useState<string | null>(null);
   const [showGlossary, setShowGlossary] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const threeContainerRef = useRef<HTMLDivElement>(null);
   const instRef = useRef<ShapeInst[]>([]);
-  const dimRef = useRef<Dimension>('2D');
+  const dimRef = useRef<Dimension>('1D');
   const frameRef = useRef<number>(0);
+  const canvasSizeRef = useRef({ W: 0, H: 0 });
   const camRef = useRef({
     theta: 0.4,
     phi: Math.PI / 3.5,
@@ -376,6 +484,104 @@ export default function FlatlandPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dimension]);
 
+  function resolveCollisions() {
+    const dim = dimRef.current;
+    const shapes = instRef.current;
+
+    if (dim === '1D') {
+      // Only x matters; visual half-width in normalized space is size * 0.22
+      const radScale = 0.22;
+      for (let i = 0; i < shapes.length; i++) {
+        for (let j = i + 1; j < shapes.length; j++) {
+          const a = shapes[i], b = shapes[j];
+          const dx = b.nx - a.nx;
+          const dist = Math.abs(dx);
+          const minDist = (a.size + b.size) * radScale;
+          if (dist >= minDist || dist < 1e-6) continue;
+          const nx = dx / dist;
+          const dot = (a.vnx - b.vnx) * nx;
+          if (dot <= 0) continue;
+          a.vnx -= dot * nx; b.vnx += dot * nx;
+          const push = (minDist - dist) * 0.5;
+          a.nx -= nx * push; b.nx += nx * push;
+        }
+      }
+      return;
+    }
+
+    if (dim === '2D') {
+      const { W, H } = canvasSizeRef.current;
+      if (W === 0 || H === 0) return;
+      for (let i = 0; i < shapes.length; i++) {
+        for (let j = i + 1; j < shapes.length; j++) {
+          const a = shapes[i], b = shapes[j];
+          const defA = SHAPES.find((d) => d.id === a.defId)!;
+          const defB = SHAPES.find((d) => d.id === b.defId)!;
+          const shA = buildColShape(defA, a, W, H);
+          const shB = buildColShape(defB, b, W, H);
+
+          let col: { depth: number; axis: [number, number] } | null = null;
+          if (shA.isCircle && shB.isCircle) {
+            const dx = shB.center[0] - shA.center[0];
+            const dy = shB.center[1] - shA.center[1];
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const md = shA.radius + shB.radius;
+            if (dist < md && dist > 0.001)
+              col = { depth: md - dist, axis: [dx / dist, dy / dist] };
+          } else if (shA.isCircle) {
+            col = satCirclePoly(shA, shB);
+            if (col) col.axis = [-col.axis[0], -col.axis[1]];
+          } else if (shB.isCircle) {
+            col = satCirclePoly(shB, shA);
+          } else {
+            col = satPolyPoly(shA.verts!, shB.verts!);
+          }
+          if (!col) continue;
+
+          // Orient MTV axis from A toward B
+          const dCx = shB.center[0] - shA.center[0];
+          const dCy = shB.center[1] - shA.center[1];
+          if (dCx * col.axis[0] + dCy * col.axis[1] < 0)
+            col.axis = [-col.axis[0], -col.axis[1]];
+
+          const [ax, ay] = col.axis;
+          const sep = col.depth * 0.5;
+          a.nx -= (ax * sep) / W; a.ny -= (ay * sep) / H;
+          b.nx += (ax * sep) / W; b.ny += (ay * sep) / H;
+
+          // Elastic velocity response computed in pixel space
+          const vaX = a.vnx * W, vaY = a.vny * H;
+          const vbX = b.vnx * W, vbY = b.vny * H;
+          const dot = (vaX - vbX) * ax + (vaY - vbY) * ay;
+          if (dot <= 0) continue;
+          a.vnx -= (dot * ax) / W; a.vny -= (dot * ay) / H;
+          b.vnx += (dot * ax) / W; b.vny += (dot * ay) / H;
+        }
+      }
+      return;
+    }
+
+    // 3D: sphere approximation is fine across the extra dimension
+    for (let i = 0; i < shapes.length; i++) {
+      for (let j = i + 1; j < shapes.length; j++) {
+        const a = shapes[i], b = shapes[j];
+        const dx = b.nx - a.nx, dy = b.ny - a.ny, dz = b.nz - a.nz;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const minDist = a.size + b.size;
+        if (dist >= minDist || dist < 1e-6) continue;
+        const nx = dx / dist, ny = dy / dist, nz = dz / dist;
+        const dot = (a.vnx - b.vnx) * nx + (a.vny - b.vny) * ny + (a.vnz - b.vnz) * nz;
+        if (dot <= 0) continue;
+        a.vnx -= dot * nx; b.vnx += dot * nx;
+        a.vny -= dot * ny; b.vny += dot * ny;
+        a.vnz -= dot * nz; b.vnz += dot * nz;
+        const push = (minDist - dist) * 0.5;
+        a.nx -= nx * push; a.ny -= ny * push; a.nz -= nz * push;
+        b.nx += nx * push; b.ny += ny * push; b.nz += nz * push;
+      }
+    }
+  }
+
   function stepShapes(use3D: boolean) {
     for (const inst of instRef.current) {
       const def = SHAPES.find((d) => d.id === inst.defId)!;
@@ -398,6 +604,7 @@ export default function FlatlandPage() {
         inst.nz = Math.max(0.05, Math.min(0.95, inst.nz));
       }
     }
+    resolveCollisions();
   }
 
   function startCanvas(): () => void {
@@ -409,6 +616,7 @@ export default function FlatlandPage() {
     const resize = () => {
       canvas.width = container.clientWidth;
       canvas.height = container.clientHeight;
+      canvasSizeRef.current = { W: canvas.width, H: canvas.height };
     };
     resize();
     const ro = new ResizeObserver(resize);
