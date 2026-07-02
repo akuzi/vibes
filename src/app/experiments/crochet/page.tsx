@@ -19,7 +19,7 @@ const CrochetPage = () => {
   const [currentStitchIndex, setCurrentStitchIndex] = useState(0);
   const [stitchProgress, setStitchProgress] = useState(0); // 0-1 for current stitch animation
   const [filterCategory, setFilterCategory] = useState<'all' | 'simple' | 'amigurumi'>('all');
-  const [renderMode, setRenderMode] = useState<'chart' | 'realistic'>('chart');
+  const [renderMode, setRenderMode] = useState<'chart' | 'realistic'>('realistic');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -38,7 +38,7 @@ const CrochetPage = () => {
   const stitchProgressRef = useRef(stitchProgress);
   stitchProgressRef.current = stitchProgress;
 
-  // Build stitches when pattern or canvas changes
+  // Build stitches when pattern, render mode, or canvas changes
   const rebuildPattern = useCallback(() => {
     if (!canvasRef.current) return;
 
@@ -46,14 +46,21 @@ const CrochetPage = () => {
     const stitches = buildStitchesFromPattern(
       selectedPattern,
       canvas.width,
-      canvas.height
+      canvas.height,
+      renderMode
     );
-    stitchesRef.current = stitches;
 
-    setCurrentStitchIndex(0);
-    setStitchProgress(0);
-    setIsPlaying(false);
-  }, [selectedPattern]);
+    // Preserve playback position so toggling view or resizing doesn't reset
+    const idx = Math.min(currentStitchIndexRef.current, stitches.length - 1);
+    for (let i = 0; i < idx; i++) {
+      stitches[i].animationProgress = 1;
+    }
+    if (idx >= 0) {
+      stitches[idx].animationProgress = stitchProgressRef.current;
+    }
+
+    stitchesRef.current = stitches;
+  }, [selectedPattern, renderMode]);
 
   // Initialize canvas and build pattern
   useEffect(() => {
@@ -190,7 +197,10 @@ const CrochetPage = () => {
 
   const handlePatternChange = (pattern: CrochetPattern) => {
     setSelectedPattern(pattern);
+    setCurrentStitchIndex(0);
+    setStitchProgress(0);
     setIsPlaying(false);
+    lastTimeRef.current = 0;
   };
 
   const handleSpeedChange = (newSpeed: number) => {
