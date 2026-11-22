@@ -3,10 +3,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Board, { type Arrow } from '@/components/openings/Board';
-import { applyMove, initialPosition, moveFromSan, playLine, sameSan, type Move, type Position } from '@/lib/chess';
+import { speechInputSupported, useSpeechInput } from '@/components/openings/useSpeechInput';
+import {
+  applyMove,
+  initialPosition,
+  moveFromSan,
+  playLine,
+  sameSan,
+  squareName,
+  type Move,
+  type Position,
+} from '@/lib/chess';
+import { narrator } from '@/lib/narrator';
 import { OPENINGS, openingById, type Opening, type OpeningLine } from '@/lib/openings';
+import { matchSpokenName, parseCommand, parseSpokenMove, type VoiceCommand } from '@/lib/voice-moves';
 
-type Mode = 'learn' | 'drill' | 'quiz';
+type Mode = 'learn' | 'drill' | 'punish' | 'quiz';
 
 interface LineStats {
   runs: number;
@@ -134,7 +146,35 @@ export default function OpeningsPage() {
   const [flipped, setFlipped] = useState(false);
   const [progress, setProgress] = useState<Progress>({});
 
+  const [voiceOn, setVoiceOn] = useState(true);
+  const [micOn, setMicOn] = useState(false);
+  const [micSupported, setMicSupported] = useState(false);
+
+  useEffect(() => setMicSupported(speechInputSupported()), []);
+
   useEffect(() => setProgress(loadProgress()), []);
+  useEffect(() => {
+    try {
+      setVoiceOn(localStorage.getItem('openings-voice') !== 'off');
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+  useEffect(() => {
+    narrator.enabled = voiceOn;
+    if (!voiceOn) narrator.stop();
+  }, [voiceOn]);
+  useEffect(() => () => narrator.stop(), []);
+
+  const toggleVoice = () => {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    try {
+      localStorage.setItem('openings-voice', next ? 'on' : 'off');
+    } catch {
+      /* storage unavailable */
+    }
+  };
 
   const opening = openingById(openingId)!;
   const line = opening.lines.find((l) => l.id === lineId) ?? opening.lines[0];
@@ -154,7 +194,7 @@ export default function OpeningsPage() {
     setOpeningId(o.id);
     setLineId(o.lines[0].id);
     setFlipped(false);
-    if (mode === 'quiz') setMode('learn');
+    if (mode === 'quiz' || mode === 'punish') setMode('learn');
   };
 
   const masteredCount = OPENINGS.reduce(
@@ -175,8 +215,33 @@ export default function OpeningsPage() {
           </h1>
           <span className="hidden sm:inline text-stone-500 text-sm italic">learn the first moves that matter</span>
         </div>
-        <div className="text-sm text-stone-400">
-          <span className="text-amber-300 font-semibold">{masteredCount}</span> / {totalLines} lines mastered
+        <div className="flex items-center gap-4 text-sm text-stone-400">
+          <span>
+            <span className="text-amber-300 font-semibold">{masteredCount}</span> / {totalLines} lines mastered
+          </span>
+          <button
+            onClick={toggleVoice}
+            title={voiceOn ? 'Mute the commentary' : 'Speak the commentary'}
+            className={`px-3 py-1 rounded-full ring-1 transition ${
+              voiceOn ? 'ring-amber-700/70 text-amber-200 bg-amber-900/30' : 'ring-stone-700 text-stone-500'
+            }`}
+          >
+            {voiceOn ? '🔊 Voice on' : '🔇 Voice off'}
+          </button>
+          <button
+            onClick={() => setMicOn(!micOn)}
+            disabled={!micSupported}
+            title={
+              micSupported
+                ? 'Play by voice: say moves like "knight f3" or "castles"'
+                : 'Speech recognition is not supported in this browser (try Chrome or Edge)'
+            }
+            className={`px-3 py-1 rounded-full ring-1 transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              micOn ? 'ring-rose-600/80 text-rose-100 bg-rose-900/40' : 'ring-stone-700 text-stone-500 hover:text-stone-300'
+            }`}
+          >
+            {micOn ? '🎙 Speaking moves' : '🎙 Speak moves'}
+          </button>
         </div>
       </header>
 
@@ -184,14 +249,14 @@ export default function OpeningsPage() {
         {/* Opening picker */}
         <aside className="lg:w-64 shrink-0 space-y-5">
           <div className="flex rounded-lg bg-stone-900/80 p-1 ring-1 ring-stone-800">
-            {(['learn', 'drill', 'quiz'] as Mode[]).map((m) => (
+            {(['learn', 'drill', 'punish', 'quiz'] as Mode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => {
                   setMode(m);
                   if (m !== 'drill' && lineId === 'all') setLineId(opening.lines[0].id);
                 }}
-                className={`flex-1 py-1.5 rounded-md text-sm capitalize transition ${
+                className={`flex-1 py-1.5 rounded-md text-[13px] capitalize transition ${
                   mode === m ? 'bg-amber-600 text-stone-950 font-semibold' : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
@@ -207,7 +272,7 @@ export default function OpeningsPage() {
               </h2>
               <ul className="space-y-1">
                 {OPENINGS.filter((o) => o.side === side).map((o) => {
-                  const active = o.id === openingId && mode !== 'quiz';
+                  const active = o.id === openingId && (mode === 'learn' || mode === 'drill');
                   return (
                     <li key={o.id}>
                       <button
@@ -224,7 +289,7 @@ export default function OpeningsPage() {
                               <span
                                 key={l.id}
                                 title={`${l.name}: ${clean} clean run${clean === 1 ? '' : 's'}`}
-                                className={`w-1.5 h-1.5 rounded-full ${
+                                className={`w-1.5 h-1.5 ${l.deviation !== undefined ? 'rotate-45' : 'rounded-full'} ${
                                   clean >= MASTERED_AT ? 'bg-amber-400' : clean > 0 ? 'bg-amber-700' : 'bg-stone-700'
                                 }`}
                               />
@@ -241,7 +306,22 @@ export default function OpeningsPage() {
         </aside>
 
         {mode === 'quiz' ? (
-          <Quiz />
+          <Quiz micOn={micOn} />
+        ) : mode === 'punish' ? (
+          <Punish progress={progress} recordRun={recordRun} micOn={micOn} />
+        ) : lineId === 'offbook' ? (
+          <OffBookSet
+            key={`${mode}:${openingId}`}
+            practice={mode === 'learn'}
+            opening={opening}
+            setLineId={setLineId}
+            flipped={flipped}
+            setFlipped={setFlipped}
+            progress={progress}
+            recordRun={recordRun}
+            micOn={micOn}
+            onSwitchMode={() => setMode(mode === 'learn' ? 'drill' : 'learn')}
+          />
         ) : (
           <Trainer
             key={`${mode}:${openingId}:${lineId}`}
@@ -255,6 +335,7 @@ export default function OpeningsPage() {
             setFlipped={setFlipped}
             progress={progress}
             recordRun={recordRun}
+            micOn={micOn}
           />
         )}
       </div>
@@ -275,22 +356,58 @@ interface TrainerProps {
   setFlipped: (f: boolean) => void;
   progress: Progress;
   recordRun: (o: Opening, l: OpeningLine, clean: boolean) => void;
+  /** Puzzle mode: start the drill just after the opponent's off-book move. */
+  puzzle?: PuzzleOptions;
+  micOn: boolean;
 }
 
-type Feedback = { kind: 'good' | 'bad' | 'info' | 'done'; text: string } | null;
+interface PuzzleOptions {
+  onNext: () => void;
+  nextLabel?: string;
+  /** Shown above the opening summary, e.g. "Off-book test · 2 of 4". */
+  label?: string;
+  /** Practice: the arrow appears after one miss and nothing is scored. */
+  practice?: boolean;
+  /** Keep the opening's line list visible (so you can leave the set). */
+  showLines?: boolean;
+  onFinish?: (clean: boolean) => void;
+}
 
-function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setFlipped, progress, recordRun }: TrainerProps) {
+type Feedback = { kind: 'good' | 'bad' | 'warn' | 'info' | 'done'; text: string } | null;
+
+const offBookText = (l: OpeningLine) =>
+  `${l.moves[l.deviation!]} — off book! ${l.notes[l.deviation!] ?? ''} How do you punish it?`;
+
+function Trainer({
+  mode,
+  opening,
+  line,
+  mixAll,
+  lineId,
+  setLineId,
+  flipped,
+  setFlipped,
+  progress,
+  recordRun,
+  puzzle,
+  micOn,
+}: TrainerProps) {
   const side = opening.side;
   const orientation = flipped ? (side === 'w' ? 'b' : 'w') : side;
 
   // Learn mode works on the full line; drill builds up the game as it's played.
   const full = useMemo(() => playLine(line.moves), [line]);
   const [cursor, setCursor] = useState(0);
-  const [played, setPlayed] = useState<Move[]>([]);
+  const startMoves = useMemo(
+    () => (puzzle && line.deviation !== undefined ? playLine(line.moves.slice(0, line.deviation + 1)).moves : []),
+    [puzzle, line],
+  );
+  const startFeedback: Feedback = puzzle && line.deviation !== undefined ? { kind: 'warn', text: offBookText(line) } : null;
+  const [played, setPlayed] = useState<Move[]>(startMoves);
   const [wrongTries, setWrongTries] = useState(0);
   const [mistakePlies, setMistakePlies] = useState<Set<number>>(new Set());
   const [showHint, setShowHint] = useState(false);
-  const [feedback, setFeedback] = useState<Feedback>(null);
+  const [feedback, setFeedback] = useState<Feedback>(startFeedback);
   const [flash, setFlash] = useState<{ square: number; color: string } | null>(null);
   const [finished, setFinished] = useState<OpeningLine | null>(null);
   const [runId, setRunId] = useState(0);
@@ -327,11 +444,18 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
     if (ended) {
       const clean = mistakePlies.size === 0;
       setFinished(ended);
-      recordRun(opening, ended, clean);
+      if (!puzzle?.practice) recordRun(opening, ended, clean);
+      puzzle?.onFinish?.(clean);
       playTone('done');
       setFeedback({
         kind: 'done',
-        text: clean
+        text: puzzle?.practice
+          ? `That's how to meet ${ended.moves[ended.deviation!]} in the ${opening.name}.`
+          : puzzle
+          ? clean
+            ? `Punished! That's the ${ended.name} in the ${opening.name}.`
+            : `Solved with ${mistakePlies.size} slip${mistakePlies.size === 1 ? '' : 's'} — ${ended.name}, ${opening.name}.`
+          : clean
           ? `Flawless! You played the ${ended.name} from memory.`
           : `Line complete with ${mistakePlies.size} slip${mistakePlies.size === 1 ? '' : 's'}. Go again for a clean run.`,
       });
@@ -343,14 +467,34 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
       const move = moveFromSan(position, pick.moves[played.length]);
       if (!move) return;
       playTone(move.captured ? 'capture' : 'move');
+      if (pick.deviation === played.length) setFeedback({ kind: 'warn', text: offBookText(pick) });
+      else narrator.say(move.san, { interrupt: false });
       setPlayed((p) => [...p, move]);
     }, 550);
     return () => clearTimeout(t);
-  }, [mode, finished, candidates, played, position, side, opening, recordRun, mistakePlies]);
+  }, [mode, finished, candidates, played, position, side, opening, recordRun, mistakePlies, puzzle]);
 
   useEffect(() => {
     if (mode === 'learn') setFeedback(null);
   }, [mode, cursor]);
+
+  /* ----- narration ----- */
+  useEffect(() => {
+    if (mode !== 'learn') return;
+    const spoken = (c: number) =>
+      c > 0 && c <= line.moves.length
+        ? line.moves[c - 1] + (line.notes[c - 1] ? ` — ${line.notes[c - 1]}` : '')
+        : '';
+    if (cursor > 0) narrator.say(spoken(cursor));
+    else narrator.stop();
+    narrator.prefetch(spoken(cursor + 1));
+  }, [mode, cursor, line]);
+
+  useEffect(() => {
+    if (!feedback) return;
+    // Reactions to the player's own move cut in; everything else waits its turn.
+    narrator.say(feedback.text, { interrupt: feedback.kind === 'good' || feedback.kind === 'bad' });
+  }, [feedback]);
 
   /* ----- learn: keyboard stepping ----- */
   useEffect(() => {
@@ -369,6 +513,15 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
     () => [...new Set(candidates.map((l) => l.moves[played.length]).filter(Boolean))],
     [candidates, played.length],
   );
+
+  useEffect(() => {
+    if (mode !== 'drill' || position.turn !== side) return;
+    for (const l of candidates) {
+      const note = l.notes[played.length];
+      const m = l.moves[played.length] && moveFromSan(position, l.moves[played.length]);
+      if (m) narrator.prefetch(note ? `${m.san} — ${note}` : `${m.san} ✓`);
+    }
+  }, [mode, position, side, candidates, played.length]);
 
   const onUserMove = (move: Move) => {
     if (mode === 'learn') {
@@ -399,20 +552,21 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
       const tries = wrongTries + 1;
       setWrongTries(tries);
       setMistakePlies((s) => new Set(s).add(played.length));
-      if (tries >= 2) setShowHint(true);
+      const revealAt = puzzle?.practice ? 1 : 2;
+      if (tries >= revealAt) setShowHint(true);
       setFeedback({
         kind: 'bad',
-        text: tries >= 2 ? `Not quite — follow the arrow: ${expectedSans[0]}.` : `${move.san} isn't in the repertoire. Try again.`,
+        text: tries >= revealAt ? `Not quite — follow the arrow: ${expectedSans[0]}.` : `${move.san} isn't in the repertoire. Try again.`,
       });
     }
   };
 
   const restart = () => {
-    setPlayed([]);
+    setPlayed(startMoves);
     setWrongTries(0);
     setMistakePlies(new Set());
     setShowHint(false);
-    setFeedback(null);
+    setFeedback(startFeedback);
     setFinished(null);
     setRunId((r) => r + 1);
   };
@@ -422,11 +576,70 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
     setMistakePlies((s) => new Set(s).add(played.length));
   };
 
+  /* ----- playing by voice ----- */
+  const [heard, setHeard] = useState<{ said: string; result: string } | null>(null);
+
+  const runCommand = (cmd: VoiceCommand) => {
+    if (cmd === 'repeat') narrator.replay();
+    if (cmd === 'flip') setFlipped(!flipped);
+    if (mode === 'learn') {
+      if (cmd === 'next') setCursor((c) => Math.min(c + 1, full.moves.length));
+      if (cmd === 'back') setCursor((c) => Math.max(c - 1, 0));
+      if (cmd === 'restart') setCursor(0);
+      return;
+    }
+    if (cmd === 'hint' && !finished && position.turn === side && !showHint) askHint();
+    if (cmd === 'restart') restart();
+    if (cmd === 'next' && finished) {
+      if (puzzle) puzzle.onNext();
+      else restart();
+    }
+  };
+
+  const mic = useSpeechInput(micOn, (alternatives) => {
+    // Don't let the microphone pick up the narrator reading out moves.
+    if (narrator.isBusy() || !alternatives.length) return;
+    const said = alternatives[0];
+    const cmd = alternatives.map(parseCommand).find(Boolean);
+    if (cmd) {
+      setHeard({ said, result: cmd });
+      runCommand(cmd);
+      return;
+    }
+    const canMoveNow = mode === 'learn' ? cursor < full.moves.length : !finished && position.turn === side;
+    if (!canMoveNow) {
+      setHeard({ said, result: 'not your move' });
+      return;
+    }
+    let ambiguous: Move[] | null = null;
+    for (const alt of alternatives) {
+      const r = parseSpokenMove(alt, position);
+      if (r.kind === 'move') {
+        setHeard({ said: alt, result: r.move.san });
+        onUserMove(r.move);
+        return;
+      }
+      if (r.kind === 'ambiguous') ambiguous ??= r.moves;
+    }
+    if (ambiguous) {
+      const froms = ambiguous.map((m) => squareName(m.from));
+      setHeard({ said, result: 'which one?' });
+      narrator.say(`Which one? From ${froms.join(' or ')}?`);
+      return;
+    }
+    setHeard({ said, result: '?' });
+  });
+
   const arrows: Arrow[] = [];
   if (mode === 'learn' && cursor < full.moves.length) {
     const m = full.moves[cursor];
     const yours = full.positions[cursor].turn === side;
-    arrows.push({ from: m.from, to: m.to, color: yours ? 'rgba(60, 160, 90, 0.8)' : 'rgba(80, 130, 220, 0.75)' });
+    const color = yours
+      ? 'rgba(60, 160, 90, 0.8)'
+      : cursor === line.deviation
+        ? 'rgba(235, 120, 40, 0.85)'
+        : 'rgba(80, 130, 220, 0.75)';
+    arrows.push({ from: m.from, to: m.to, color });
   }
   if (mode === 'drill' && showHint && !finished) {
     for (const san of expectedSans) {
@@ -444,9 +657,11 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
 
   let status: string;
   if (mode === 'learn') {
-    status = upcoming
-      ? `${upcoming && full.positions[cursor].turn === side ? 'You play' : 'They play'} ${moveNo(cursor)} ${upcoming.san}`
-      : 'End of line — try it in Drill mode.';
+    status = !upcoming
+      ? 'End of line — try it in Drill mode.'
+      : cursor === line.deviation
+        ? `They go off book: ${moveNo(cursor)} ${line.moves[cursor]}`
+        : `${full.positions[cursor].turn === side ? 'You play' : 'They play'} ${moveNo(cursor)} ${line.moves[cursor]}`;
   } else if (finished) status = 'Line complete';
   else status = userToMove ? 'Your move' : 'Opponent is thinking…';
 
@@ -496,6 +711,7 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
             )}
             <CtlButton onClick={() => setFlipped(!flipped)}>⇅ Flip</CtlButton>
           </div>
+          {micOn && <MicStatus listening={mic.listening} error={mic.error} heard={heard} />}
         </div>
       </section>
 
@@ -507,25 +723,50 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
           </div>
           <p className="text-sm text-stone-400 mt-2 leading-relaxed">{opening.summary}</p>
 
+          {puzzle?.label && (
+            <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-orange-400/90">{puzzle.label}</p>
+          )}
+
+          {(!puzzle || puzzle.showLines) && (
           <div className="mt-4 space-y-1">
-            {opening.lines.map((l) => {
+            {opening.lines.map((l, i) => {
               const s = progress[statKey(opening, l)];
+              const firstSideline = l.deviation !== undefined && opening.lines.findIndex((x) => x.deviation !== undefined) === i;
               return (
+                <React.Fragment key={l.id}>
+                {firstSideline && (
+                  <h3 className="pt-3 pb-1 px-1 text-[10px] uppercase tracking-[0.2em] text-orange-400/80">
+                    Off book — punish it
+                  </h3>
+                )}
                 <button
-                  key={l.id}
                   onClick={() => setLineId(l.id)}
                   className={`w-full flex justify-between items-center px-3 py-1.5 rounded-md text-sm transition ${
                     lineId === l.id ? 'bg-amber-600/20 text-amber-100 ring-1 ring-amber-700/50' : 'text-stone-300 hover:bg-stone-800'
                   }`}
                 >
-                  <span>{l.name}</span>
-                  <span className="text-xs text-stone-500">
+                  <span className="text-left">{l.name}</span>
+                  <span className="text-xs text-stone-500 shrink-0 ml-2">
                     {s ? `${Math.min(s.clean, MASTERED_AT)}/${MASTERED_AT}` : '—'}
                     {(s?.clean ?? 0) >= MASTERED_AT && <span className="ml-1 text-amber-400">★</span>}
                   </span>
                 </button>
+                </React.Fragment>
               );
             })}
+            {opening.lines.some((l) => l.deviation !== undefined) && (
+              <button
+                onClick={() => setLineId('offbook')}
+                className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition ${
+                  lineId === 'offbook'
+                    ? 'bg-orange-600/20 text-orange-100 ring-1 ring-orange-700/50'
+                    : 'text-orange-300/80 hover:bg-stone-800'
+                }`}
+              >
+                🎯 {mode === 'learn' ? 'Practise' : 'Test'} all off-book replies (
+                {opening.lines.filter((l) => l.deviation !== undefined).length})
+              </button>
+            )}
             {mode === 'drill' && opening.lines.length > 1 && (
               <button
                 onClick={() => setLineId('all')}
@@ -533,17 +774,20 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
                   mixAll ? 'bg-amber-600/20 text-amber-100 ring-1 ring-amber-700/50' : 'text-stone-400 hover:bg-stone-800'
                 }`}
               >
-                🎲 Mixed — opponent picks a line
+                🎲 Mixed — opponent picks a line, sometimes off book
               </button>
             )}
           </div>
+          )}
         </div>
 
         {(feedback || (mode === 'learn' && (learnNote || upcoming))) && (
           <div
-            className={`rounded-xl p-4 text-sm leading-relaxed ring-1 ${
+            className={`relative rounded-xl p-4 pr-11 text-sm leading-relaxed ring-1 ${
               feedback?.kind === 'bad'
                 ? 'bg-rose-950/50 ring-rose-800/60 text-rose-100'
+                : feedback?.kind === 'warn'
+                  ? 'bg-orange-950/50 ring-orange-700/60 text-orange-100'
                 : feedback?.kind === 'done'
                   ? 'bg-amber-900/40 ring-amber-600/60 text-amber-100'
                   : feedback?.kind === 'good'
@@ -551,16 +795,31 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
                     : 'bg-stone-900/70 ring-stone-800 text-stone-300'
             }`}
           >
+            <ReplayButton />
             {feedback ? (
               <>
                 <p>{feedback.text}</p>
                 {feedback.kind === 'done' && (
-                  <button
-                    onClick={restart}
-                    className="mt-3 px-3 py-1.5 rounded-md bg-amber-500 text-stone-950 font-semibold text-sm hover:bg-amber-400"
-                  >
-                    Play again
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    {puzzle && (
+                      <button
+                        onClick={puzzle.onNext}
+                        className="px-3 py-1.5 rounded-md bg-amber-500 text-stone-950 font-semibold text-sm hover:bg-amber-400"
+                      >
+                        {puzzle.nextLabel ?? 'Next puzzle →'}
+                      </button>
+                    )}
+                    <button
+                      onClick={restart}
+                      className={`px-3 py-1.5 rounded-md text-sm ${
+                        puzzle
+                          ? 'bg-stone-800 text-stone-200 ring-1 ring-stone-700 hover:bg-stone-700'
+                          : 'bg-amber-500 text-stone-950 font-semibold hover:bg-amber-400'
+                      }`}
+                    >
+                      {puzzle ? 'Try again' : 'Play again'}
+                    </button>
+                  </div>
                 )}
               </>
             ) : (
@@ -593,7 +852,7 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
             </p>
           ) : (
             <MoveList
-              moves={mode === 'learn' ? full.moves.map((m) => m.san) : played.map((m) => m.san)}
+              moves={mode === 'learn' ? line.moves : played.map((m, i) => annotated(candidates, i, m.san))}
               cursor={mode === 'learn' ? cursor : played.length}
               onJump={mode === 'learn' ? setCursor : undefined}
               mistakes={mode === 'drill' ? mistakePlies : undefined}
@@ -602,6 +861,51 @@ function Trainer({ mode, opening, line, mixAll, lineId, setLineId, flipped, setF
         </div>
       </aside>
     </>
+  );
+}
+
+function MicStatus({
+  listening,
+  error,
+  heard,
+  example = 'say a move like “knight f3” or “castles”',
+}: {
+  listening: boolean;
+  error: string | null;
+  heard: { said: string; result: string } | null;
+  example?: string;
+}) {
+  return (
+    <div className="mt-3 rounded-lg bg-stone-900/70 ring-1 ring-stone-800 px-4 py-2 text-sm flex items-center gap-3">
+      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${error ? 'bg-stone-600' : listening ? 'bg-rose-500 animate-pulse' : 'bg-stone-500'}`} />
+      {error ? (
+        <span className="text-rose-300">{error}</span>
+      ) : heard ? (
+        <span className="text-stone-400 truncate">
+          Heard “<span className="text-stone-200">{heard.said}</span>”
+          <span className="mx-2 text-stone-600">→</span>
+          <span className={`font-mono ${heard.result === '?' ? 'text-rose-300' : 'text-amber-200'}`}>
+            {heard.result === '?' ? 'no legal move' : heard.result}
+          </span>
+        </span>
+      ) : (
+        <span className="text-stone-400">
+          Listening — {example}. Commands: next, back, hint, restart, flip, repeat.
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ReplayButton() {
+  return (
+    <button
+      onClick={() => narrator.replay()}
+      title="Say it again"
+      className="absolute top-3 right-3 w-7 h-7 rounded-full text-xs bg-black/20 hover:bg-black/40 ring-1 ring-white/10"
+    >
+      🔊
+    </button>
   );
 }
 
@@ -628,6 +932,203 @@ function CtlButton({
     >
       {children}
     </button>
+  );
+}
+
+/** The book's spelling of a played move, keeping `?!`-style annotations. */
+function annotated(lines: OpeningLine[], ply: number, san: string) {
+  const book = lines.find((l) => l.moves[ply] && sameSan(l.moves[ply], san));
+  return book ? book.moves[ply] : san;
+}
+
+/* -------------------------------------------------------- off-book sets */
+
+/**
+ * Works through every off-book sideline of one opening in turn. In Learn it's
+ * practice (free hints, unscored); in Drill it's a scored test.
+ */
+function OffBookSet({
+  practice,
+  opening,
+  setLineId,
+  flipped,
+  setFlipped,
+  progress,
+  recordRun,
+  micOn,
+  onSwitchMode,
+}: {
+  practice: boolean;
+  opening: Opening;
+  setLineId: (id: string) => void;
+  flipped: boolean;
+  setFlipped: (f: boolean) => void;
+  progress: Progress;
+  recordRun: (o: Opening, l: OpeningLine, clean: boolean) => void;
+  micOn: boolean;
+  onSwitchMode: () => void;
+}) {
+  const sidelines = useMemo(() => opening.lines.filter((l) => l.deviation !== undefined), [opening]);
+  // Practice goes in book order; the test shuffles so you can't lean on the sequence.
+  const [order, setOrder] = useState(() => (practice ? sidelines : shuffle(sidelines)));
+  const [index, setIndex] = useState(0);
+  const [round, setRound] = useState(0);
+  const [results, setResults] = useState<(boolean | undefined)[]>([]);
+
+  const again = () => {
+    setOrder(practice ? sidelines : shuffle(sidelines));
+    setIndex(0);
+    setResults([]);
+    setRound((r) => r + 1);
+  };
+
+  useEffect(() => {
+    if (index < order.length) return;
+    const cleanCount = results.filter(Boolean).length;
+    narrator.say(
+      practice
+        ? `That's all ${order.length} off-book replies. Now test yourself in Drill.`
+        : `You punished ${cleanCount} of ${order.length} cleanly.`,
+    );
+  }, [index, order.length, results, practice]);
+
+  if (index >= order.length) {
+    const cleanCount = results.filter(Boolean).length;
+    return (
+      <section className="flex-1 flex justify-center items-start">
+        <div className="w-full max-w-lg rounded-xl bg-stone-900/70 ring-1 ring-stone-800 p-6 space-y-5">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-orange-400/90">
+              {practice ? 'Off-book practice complete' : 'Off-book test results'}
+            </p>
+            <h2 className="text-2xl font-serif text-amber-100 mt-1">{opening.name}</h2>
+            {!practice && (
+              <p className="text-stone-300 mt-2">
+                <span className="text-3xl font-serif text-amber-200">{cleanCount}</span>
+                <span className="text-stone-500"> / {order.length} punished cleanly</span>
+              </p>
+            )}
+          </div>
+          <ul className="space-y-2">
+            {order.map((l, i) => (
+              <li key={l.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-stone-300">
+                  <span className="font-mono text-orange-300 mr-2">{l.moves[l.deviation!]}</span>
+                  {l.name}
+                </span>
+                <span className={practice ? 'text-stone-500' : results[i] ? 'text-emerald-400' : 'text-rose-400'}>
+                  {practice ? 'seen' : results[i] ? '✓ clean' : '✗ slipped'}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={onSwitchMode}
+              className="px-3 py-1.5 rounded-md bg-amber-600 text-stone-950 font-semibold text-sm hover:bg-amber-500"
+            >
+              {practice ? 'Test yourself in Drill →' : 'Practise again in Learn'}
+            </button>
+            <CtlButton onClick={again}>↺ Go again</CtlButton>
+            <CtlButton onClick={() => setLineId(opening.lines[0].id)}>Back to lines</CtlButton>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const line = order[index];
+  const last = index === order.length - 1;
+  return (
+    <Trainer
+      key={`${round}:${index}`}
+      mode="drill"
+      opening={opening}
+      line={line}
+      mixAll={false}
+      lineId="offbook"
+      setLineId={setLineId}
+      flipped={flipped}
+      setFlipped={setFlipped}
+      progress={progress}
+      recordRun={recordRun}
+      micOn={micOn}
+      puzzle={{
+        practice,
+        showLines: true,
+        label: `${practice ? 'Off-book practice' : 'Off-book test'} · ${index + 1} of ${order.length}`,
+        nextLabel: last ? 'See results →' : 'Next reply →',
+        onNext: () => setIndex((i) => i + 1),
+        onFinish: (clean) =>
+          setResults((r) => {
+            const next = r.slice();
+            next[index] = clean;
+            return next;
+          }),
+      }}
+    />
+  );
+}
+
+/* ----------------------------------------------------------------- punish */
+
+const SIDELINES = OPENINGS.flatMap((opening) =>
+  opening.lines.filter((l) => l.deviation !== undefined).map((line) => ({ opening, line })),
+);
+
+function Punish({
+  progress,
+  recordRun,
+  micOn,
+}: {
+  progress: Progress;
+  recordRun: (o: Opening, l: OpeningLine, clean: boolean) => void;
+  micOn: boolean;
+}) {
+  const [index, setIndex] = useState<number | null>(null);
+  const [round, setRound] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+
+  // Favour puzzles you haven't solved cleanly yet, and never repeat the last one.
+  const pick = useCallback(
+    (exclude: number | null) => {
+      const weights = SIDELINES.map(({ opening, line }, i) =>
+        i === exclude ? 0 : 1 / (1 + (progress[statKey(opening, line)]?.clean ?? 0)),
+      );
+      let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+      const i = weights.findIndex((w) => (r -= w) <= 0);
+      return i < 0 ? 0 : i;
+    },
+    [progress],
+  );
+
+  useEffect(() => setIndex((cur) => cur ?? pick(null)), [pick]);
+
+  if (index === null) return <section className="flex-1" />;
+  const { opening, line } = SIDELINES[index];
+
+  return (
+    <Trainer
+      key={`${index}:${round}`}
+      mode="drill"
+      opening={opening}
+      line={line}
+      mixAll={false}
+      lineId={line.id}
+      setLineId={() => {}}
+      flipped={flipped}
+      setFlipped={setFlipped}
+      progress={progress}
+      recordRun={recordRun}
+      micOn={micOn}
+      puzzle={{
+        onNext: () => {
+          setIndex(pick(index));
+          setRound((r) => r + 1);
+          setFlipped(false);
+        },
+      }}
+    />
   );
 }
 
@@ -669,7 +1170,7 @@ function makeQuestion(): Question {
   };
 }
 
-function Quiz() {
+function Quiz({ micOn }: { micOn: boolean }) {
   const [q, setQ] = useState<Question | null>(null);
   const [answer, setAnswer] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
@@ -690,6 +1191,7 @@ function Quiz() {
     setAnswer(id);
     const right = id === q.opening.id;
     playTone(right ? 'done' : 'wrong');
+    narrator.say(`${right ? 'Correct!' : 'Not this time.'} It's the ${q.opening.name}, ${q.line.name}.`);
     setScore((s) => ({ right: s.right + (right ? 1 : 0), total: s.total + 1 }));
     const nextStreak = right ? streak + 1 : 0;
     setStreak(nextStreak);
@@ -720,6 +1222,29 @@ function Quiz() {
     return () => window.removeEventListener('keydown', onKey);
   }, [answer, next]);
 
+  const [heard, setHeard] = useState<{ said: string; result: string } | null>(null);
+  const mic = useSpeechInput(micOn, (alternatives) => {
+    if (narrator.isBusy() || !q || !alternatives.length) return;
+    const said = alternatives[0];
+    const cmd = alternatives.map(parseCommand).find(Boolean);
+    if (answer) {
+      if (cmd === 'next') {
+        setHeard({ said, result: 'next' });
+        next();
+      } else if (cmd === 'repeat') narrator.replay();
+      return;
+    }
+    for (const alt of alternatives) {
+      const o = matchSpokenName(alt, q.choices, (c) => c.name);
+      if (o) {
+        setHeard({ said: alt, result: o.name });
+        choose(o.id);
+        return;
+      }
+    }
+    setHeard({ said, result: '?' });
+  });
+
   if (!q) return <section className="flex-1" />;
 
   const moveText = q.line.moves
@@ -736,6 +1261,14 @@ function Quiz() {
             <span className="text-stone-500">{q.position.turn === 'w' ? 'White' : 'Black'} to move</span>
           </div>
           <Board position={q.position} orientation="w" movable={null} lastMove={q.lastMove} />
+          {micOn && (
+            <MicStatus
+              listening={mic.listening}
+              error={mic.error}
+              heard={heard}
+              example="say the opening’s name, then “next”"
+            />
+          )}
         </div>
       </section>
 
