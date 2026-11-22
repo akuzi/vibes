@@ -109,6 +109,7 @@ Current experiments include:
 9. **Speaking Avatar** - Lip-sync animation for text-to-speech
 10. **Crochet Simulator** - Animated crochet pattern renderer
 11. **Pokemon Catch** - Click-to-catch game with high scores
+12. **Openings** - Chess opening trainer (learn, drill, name-the-opening quiz) on a custom rules engine in `src/lib/chess.ts`
 
 ### Common Utilities
 

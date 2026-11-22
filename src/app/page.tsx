@@ -19,6 +19,7 @@ export default function Home() {
     crochet: "Create and animate crochet patterns stitch-by-stitch. Watch cute amigurumi animals and patterns come to life with realistic crochet stitches.",
     'nifti-viewer': "View Neuroimaging data in 3D. Upload a NIfTI file and explore the brain in 3D.",
     flatland: "Explore Edwin Abbott Abbott's Flatland. Watch characters from the novel move through 1D, 2D, and 3D space — see how shape and form are projected across dimensions.",
+    openings: "Learn chess openings move by move. Step through annotated lines, drill your repertoire against an opponent that plays the book, and test yourself by naming openings from the position.",
 };
 
   return (
@@ -168,6 +169,17 @@ export default function Home() {
                         <p>
                             <span className="text-blue-400">[13]</span>
                             <span className="text-white ml-4">Flatland</span>
+                        </p>
+                    </Link>
+                    <Link
+                        href="/experiments/openings"
+                        className="hover:bg-green-900 p-2 rounded"
+                        onMouseEnter={() => setHoveredExperiment('openings')}
+                        onMouseLeave={() => setHoveredExperiment(null)}
+                    >
+                        <p>
+                            <span className="text-blue-400">[14]</span>
+                            <span className="text-white ml-4">Openings</span>
                         </p>
                     </Link>
                 </div>
